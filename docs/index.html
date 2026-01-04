@@ -1,0 +1,534 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NeurIPS Twin Survey 2025 - Data Visualization</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: #333;
+            padding: 20px;
+            min-height: 100vh;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            overflow: hidden;
+        }
+
+        header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 40px;
+            text-align: center;
+        }
+
+        h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+            font-weight: 700;
+        }
+
+        .subtitle {
+            font-size: 1.2em;
+            opacity: 0.9;
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+            padding: 30px;
+            background: #f8f9fa;
+        }
+
+        .stat-card {
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+            text-align: center;
+        }
+
+        .stat-value {
+            font-size: 2em;
+            font-weight: bold;
+            color: #667eea;
+            margin: 10px 0;
+        }
+
+        .stat-label {
+            color: #666;
+            font-size: 0.9em;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .charts-container {
+            padding: 40px;
+        }
+
+        .chart-wrapper {
+            margin-bottom: 50px;
+            background: #f8f9fa;
+            padding: 30px;
+            border-radius: 15px;
+        }
+
+        .chart-title {
+            font-size: 1.5em;
+            margin-bottom: 20px;
+            color: #333;
+            font-weight: 600;
+        }
+
+        .chart-canvas {
+            max-height: 400px;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 100px;
+            font-size: 1.5em;
+            color: #667eea;
+        }
+
+        footer {
+            background: #333;
+            color: white;
+            text-align: center;
+            padding: 20px;
+            font-size: 0.9em;
+        }
+
+        .insights {
+            background: #e8eaf6;
+            padding: 30px;
+            margin: 20px 40px;
+            border-radius: 10px;
+            border-left: 5px solid #667eea;
+        }
+
+        .insights h2 {
+            color: #667eea;
+            margin-bottom: 15px;
+        }
+
+        .insights ul {
+            list-style-position: inside;
+            line-height: 1.8;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🧠 NeurIPS Twin Survey 2025</h1>
+            <p class="subtitle">Exploring the Minds of AI Researchers</p>
+        </header>
+
+        <div id="loading" class="loading">Loading survey data...</div>
+
+        <div id="content" style="display: none;">
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <div class="stat-label">Total Responses</div>
+                    <div class="stat-value" id="totalResponses">-</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-label">AGI Belief (avg)</div>
+                    <div class="stat-value" id="agiAvg">-</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-label">Safety Concern (avg)</div>
+                    <div class="stat-value" id="safetyAvg">-</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-label">Top Workplace</div>
+                    <div class="stat-value" id="topWorkplace" style="font-size: 1.2em;">-</div>
+                </div>
+            </div>
+
+            <div class="insights">
+                <h2>📊 Key Insights</h2>
+                <ul id="insightsList"></ul>
+            </div>
+
+            <div class="charts-container">
+                <div class="chart-wrapper">
+                    <h3 class="chart-title">🍽️ Dream Dinner Companions (Top 10)</h3>
+                    <canvas id="dinnerChart" class="chart-canvas"></canvas>
+                </div>
+
+                <div class="chart-wrapper">
+                    <h3 class="chart-title">🤖 AGI Likelihood Beliefs (1-5 Scale)</h3>
+                    <canvas id="agiChart" class="chart-canvas"></canvas>
+                </div>
+
+                <div class="chart-wrapper">
+                    <h3 class="chart-title">💼 Preferred Workplace</h3>
+                    <canvas id="workplaceChart" class="chart-canvas"></canvas>
+                </div>
+
+                <div class="chart-wrapper">
+                    <h3 class="chart-title">🔬 Research Style Distribution</h3>
+                    <canvas id="researchStyleChart" class="chart-canvas"></canvas>
+                </div>
+
+                <div class="chart-wrapper">
+                    <h3 class="chart-title">🚀 Model Training Style</h3>
+                    <canvas id="trainingStyleChart" class="chart-canvas"></canvas>
+                </div>
+
+                <div class="chart-wrapper">
+                    <h3 class="chart-title">⚠️ AI Safety: Should We Slow Down? (1-5)</h3>
+                    <canvas id="safetyChart" class="chart-canvas"></canvas>
+                </div>
+
+                <div class="chart-wrapper">
+                    <h3 class="chart-title">🎧 Favorite ML Podcasts (Top 8)</h3>
+                    <canvas id="podcastChart" class="chart-canvas"></canvas>
+                </div>
+
+                <div class="chart-wrapper">
+                    <h3 class="chart-title">⚡ Primary Bottleneck in AI</h3>
+                    <canvas id="bottleneckChart" class="chart-canvas"></canvas>
+                </div>
+            </div>
+        </div>
+
+        <footer>
+            <p>NeurIPS Twin Survey 2025 | Data Visualization |
+            <a href="https://github.com/mathyouf/neurips2025" style="color: #667eea;">View on GitHub</a></p>
+        </footer>
+    </div>
+
+    <script>
+        // Load and parse CSV data
+        Papa.parse('../data/neuripstwin7.csv', {
+            download: true,
+            header: true,
+            complete: function(results) {
+                const data = results.data;
+                console.log('Loaded data:', data);
+
+                // Hide loading, show content
+                document.getElementById('loading').style.display = 'none';
+                document.getElementById('content').style.display = 'block';
+
+                // Process data and create charts
+                createVisualizations(data);
+            },
+            error: function(error) {
+                console.error('Error loading data:', error);
+                document.getElementById('loading').innerHTML = 'Error loading data. Please check the console.';
+            }
+        });
+
+        function createVisualizations(data) {
+            // Filter out empty rows
+            data = data.filter(row => row.Timestamp && row.Timestamp.trim() !== '');
+
+            // Update stats
+            document.getElementById('totalResponses').textContent = data.length;
+
+            const agiCol = 'I believe AGI is likely within the next 10 years.';
+            const safetyCol = 'We should slow down AI progress until safety is better understood.';
+
+            const agiValues = data.map(d => parseFloat(d[agiCol])).filter(v => !isNaN(v));
+            const safetyValues = data.map(d => parseFloat(d[safetyCol])).filter(v => !isNaN(v));
+
+            const agiAvg = (agiValues.reduce((a, b) => a + b, 0) / agiValues.length).toFixed(2);
+            const safetyAvg = (safetyValues.reduce((a, b) => a + b, 0) / safetyValues.length).toFixed(2);
+
+            document.getElementById('agiAvg').textContent = agiAvg + '/5';
+            document.getElementById('safetyAvg').textContent = safetyAvg + '/5';
+
+            // Top workplace
+            const workplaceCounts = countValues(data, 'I would most want to work at:');
+            const topWorkplace = Object.keys(workplaceCounts).sort((a, b) => workplaceCounts[b] - workplaceCounts[a])[0];
+            document.getElementById('topWorkplace').textContent = topWorkplace;
+
+            // Create insights
+            createInsights(data, workplaceCounts, agiAvg, safetyAvg);
+
+            // Create all charts
+            createDinnerChart(data);
+            createAGIChart(data);
+            createWorkplaceChart(data);
+            createResearchStyleChart(data);
+            createTrainingStyleChart(data);
+            createSafetyChart(data);
+            createPodcastChart(data);
+            createBottleneckChart(data);
+        }
+
+        function countValues(data, column) {
+            const counts = {};
+            data.forEach(row => {
+                const value = row[column];
+                if (value && value.trim() !== '') {
+                    counts[value] = (counts[value] || 0) + 1;
+                }
+            });
+            return counts;
+        }
+
+        function getTopN(counts, n) {
+            return Object.entries(counts)
+                .sort((a, b) => b[1] - a[1])
+                .slice(0, n);
+        }
+
+        function createInsights(data, workplaceCounts, agiAvg, safetyAvg) {
+            const dinnerCounts = countValues(data, 'Who would you most want to have dinner with?');
+            const topDinner = getTopN(dinnerCounts, 1)[0];
+
+            const statementCounts = countValues(data, 'Which statement do you most agree with?');
+            const topStatement = getTopN(statementCounts, 1)[0];
+
+            const insights = [
+                `<strong>${topDinner[0]}</strong> is the most desired dinner companion with ${topDinner[1]} votes`,
+                `Most agreed statement: "<strong>${topStatement[0]}</strong>" (${topStatement[1]} votes)`,
+                `Average AGI belief is ${agiAvg}/5 - moderate skepticism about AGI within 10 years`,
+                `AI safety concern averages ${safetyAvg}/5 - not strongly in favor of slowing down`,
+                `<strong>${Object.entries(workplaceCounts).sort((a,b) => b[1] - a[1])[0][0]}</strong> is the most preferred workplace`
+            ];
+
+            document.getElementById('insightsList').innerHTML = insights.map(i => `<li>${i}</li>`).join('');
+        }
+
+        function createDinnerChart(data) {
+            const counts = countValues(data, 'Who would you most want to have dinner with?');
+            const top10 = getTopN(counts, 10);
+
+            new Chart(document.getElementById('dinnerChart'), {
+                type: 'bar',
+                data: {
+                    labels: top10.map(d => d[0]),
+                    datasets: [{
+                        label: 'Votes',
+                        data: top10.map(d => d[1]),
+                        backgroundColor: 'rgba(102, 126, 234, 0.8)',
+                        borderColor: 'rgba(102, 126, 234, 1)',
+                        borderWidth: 2
+                    }]
+                },
+                options: {
+                    indexAxis: 'y',
+                    responsive: true,
+                    maintainAspectRatio: true,
+                    plugins: {
+                        legend: { display: false }
+                    }
+                }
+            });
+        }
+
+        function createAGIChart(data) {
+            const column = 'I believe AGI is likely within the next 10 years.';
+            const values = data.map(d => parseFloat(d[column])).filter(v => !isNaN(v));
+            const distribution = [1, 2, 3, 4, 5].map(rating =>
+                values.filter(v => v === rating).length
+            );
+
+            new Chart(document.getElementById('agiChart'), {
+                type: 'bar',
+                data: {
+                    labels: ['1 (Unlikely)', '2', '3', '4', '5 (Very Likely)'],
+                    datasets: [{
+                        label: 'Responses',
+                        data: distribution,
+                        backgroundColor: 'rgba(255, 99, 132, 0.8)',
+                        borderColor: 'rgba(255, 99, 132, 1)',
+                        borderWidth: 2
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: true,
+                    plugins: {
+                        legend: { display: false }
+                    }
+                }
+            });
+        }
+
+        function createWorkplaceChart(data) {
+            const counts = countValues(data, 'I would most want to work at:');
+            const entries = Object.entries(counts).sort((a, b) => b[1] - a[1]);
+
+            new Chart(document.getElementById('workplaceChart'), {
+                type: 'bar',
+                data: {
+                    labels: entries.map(d => d[0]),
+                    datasets: [{
+                        label: 'Preferences',
+                        data: entries.map(d => d[1]),
+                        backgroundColor: 'rgba(75, 192, 192, 0.8)',
+                        borderColor: 'rgba(75, 192, 192, 1)',
+                        borderWidth: 2
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: true,
+                    plugins: {
+                        legend: { display: false }
+                    }
+                }
+            });
+        }
+
+        function createResearchStyleChart(data) {
+            const counts = countValues(data, 'Your research style is most like:');
+            const entries = Object.entries(counts).sort((a, b) => b[1] - a[1]);
+
+            new Chart(document.getElementById('researchStyleChart'), {
+                type: 'doughnut',
+                data: {
+                    labels: entries.map(d => d[0]),
+                    datasets: [{
+                        data: entries.map(d => d[1]),
+                        backgroundColor: [
+                            'rgba(255, 99, 132, 0.8)',
+                            'rgba(54, 162, 235, 0.8)',
+                            'rgba(255, 206, 86, 0.8)',
+                            'rgba(75, 192, 192, 0.8)',
+                            'rgba(153, 102, 255, 0.8)',
+                            'rgba(255, 159, 64, 0.8)'
+                        ],
+                        borderWidth: 2
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: true
+                }
+            });
+        }
+
+        function createTrainingStyleChart(data) {
+            const counts = countValues(data, 'Your model training style is closest to:');
+            const entries = Object.entries(counts).sort((a, b) => b[1] - a[1]);
+
+            new Chart(document.getElementById('trainingStyleChart'), {
+                type: 'bar',
+                data: {
+                    labels: entries.map(d => d[0]),
+                    datasets: [{
+                        label: 'Count',
+                        data: entries.map(d => d[1]),
+                        backgroundColor: 'rgba(153, 102, 255, 0.8)',
+                        borderColor: 'rgba(153, 102, 255, 1)',
+                        borderWidth: 2
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: true,
+                    plugins: {
+                        legend: { display: false }
+                    }
+                }
+            });
+        }
+
+        function createSafetyChart(data) {
+            const column = 'We should slow down AI progress until safety is better understood.';
+            const values = data.map(d => parseFloat(d[column])).filter(v => !isNaN(v));
+            const distribution = [1, 2, 3, 4, 5].map(rating =>
+                values.filter(v => v === rating).length
+            );
+
+            new Chart(document.getElementById('safetyChart'), {
+                type: 'bar',
+                data: {
+                    labels: ['1 (No)', '2', '3', '4', '5 (Yes)'],
+                    datasets: [{
+                        label: 'Responses',
+                        data: distribution,
+                        backgroundColor: 'rgba(255, 159, 64, 0.8)',
+                        borderColor: 'rgba(255, 159, 64, 1)',
+                        borderWidth: 2
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: true,
+                    plugins: {
+                        legend: { display: false }
+                    }
+                }
+            });
+        }
+
+        function createPodcastChart(data) {
+            const counts = countValues(data, 'What is your favorite ML related podcast?');
+            const top8 = getTopN(counts, 8);
+
+            new Chart(document.getElementById('podcastChart'), {
+                type: 'bar',
+                data: {
+                    labels: top8.map(d => d[0]),
+                    datasets: [{
+                        label: 'Listeners',
+                        data: top8.map(d => d[1]),
+                        backgroundColor: 'rgba(255, 206, 86, 0.8)',
+                        borderColor: 'rgba(255, 206, 86, 1)',
+                        borderWidth: 2
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: true,
+                    plugins: {
+                        legend: { display: false }
+                    }
+                }
+            });
+        }
+
+        function createBottleneckChart(data) {
+            const counts = countValues(data, 'What is the primary bottleneck right now?');
+            const entries = Object.entries(counts).sort((a, b) => b[1] - a[1]);
+
+            new Chart(document.getElementById('bottleneckChart'), {
+                type: 'bar',
+                data: {
+                    labels: entries.map(d => d[0]),
+                    datasets: [{
+                        label: 'Responses',
+                        data: entries.map(d => d[1]),
+                        backgroundColor: 'rgba(54, 162, 235, 0.8)',
+                        borderColor: 'rgba(54, 162, 235, 1)',
+                        borderWidth: 2
+                    }]
+                },
+                options: {
+                    indexAxis: 'y',
+                    responsive: true,
+                    maintainAspectRatio: true,
+                    plugins: {
+                        legend: { display: false }
+                    }
+                }
+            });
+        }
+    </script>
+</body>
+</html>
