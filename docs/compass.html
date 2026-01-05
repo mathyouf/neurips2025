@@ -485,6 +485,15 @@
                 allData = processedData[category];
             }
 
+            // Calculate actual data bounds with padding
+            const agiValues = allData.map(d => d.agi);
+            const safetyValues = allData.map(d => d.invertedSafety);
+
+            const minAgi = Math.max(1, Math.floor(Math.min(...agiValues) * 10) / 10 - 0.3);
+            const maxAgi = Math.min(5, Math.ceil(Math.max(...agiValues) * 10) / 10 + 0.3);
+            const minSafety = Math.max(1, Math.floor(Math.min(...safetyValues) * 10) / 10 - 0.3);
+            const maxSafety = Math.min(5, Math.ceil(Math.max(...safetyValues) * 10) / 10 + 0.3);
+
             // Create dataset with color coding
             const dataset = {
                 label: 'Researchers',
@@ -499,8 +508,8 @@
                 backgroundColor: allData.map(d => getColorForPoint(d.agi, d.safety)),
                 borderColor: allData.map(d => getBorderColorForPoint(d.agi, d.safety)),
                 borderWidth: 2,
-                pointRadius: allData.map(d => Math.max(8, Math.sqrt(d.count) * 3)),
-                pointHoverRadius: allData.map(d => Math.max(10, Math.sqrt(d.count) * 3.5)),
+                pointRadius: allData.map(d => Math.max(5, Math.sqrt(d.count) * 1.8)),
+                pointHoverRadius: allData.map(d => Math.max(8, Math.sqrt(d.count) * 2.5)),
             };
 
             chartInstance = new Chart(ctx, {
@@ -528,36 +537,39 @@
                             }
                         },
                         datalabels: {
-                            display: true,
+                            display: function(context) {
+                                // Always show on hover, otherwise check if should be visible
+                                return context.hovered || shouldShowLabel(context.dataIndex, context.dataset.data);
+                            },
                             align: function(context) {
                                 const point = context.dataset.data[context.dataIndex];
-                                // Position labels based on quadrant
-                                if (point.x > 3 && point.y < 3.5) return 'right';
-                                if (point.x < 3 && point.y < 3.5) return 'left';
-                                if (point.x > 3 && point.y > 3.5) return 'right';
+                                // Position labels to avoid chart edges
+                                const midX = (minAgi + maxAgi) / 2;
+                                const midY = (minSafety + maxSafety) / 2;
+
+                                if (point.x > midX && point.y < midY) return 'right';
+                                if (point.x < midX && point.y < midY) return 'left';
+                                if (point.x > midX && point.y > midY) return 'right';
                                 return 'left';
                             },
-                            offset: 8,
-                            color: '#333',
+                            offset: 6,
+                            color: '#111',
                             font: {
                                 size: 10,
-                                weight: 'bold'
+                                weight: '600'
                             },
                             formatter: function(value, context) {
                                 const label = value.label;
-                                // Show label if point is significant (more than 10 responses) or in sparse area
-                                if (value.count > 10 || shouldShowLabel(context.dataIndex, context.dataset.data)) {
-                                    return label.length > 15 ? label.substring(0, 13) + '...' : label;
-                                }
-                                return '';
+                                // Truncate long labels
+                                return label.length > 18 ? label.substring(0, 16) + '...' : label;
                             },
-                            backgroundColor: function(context) {
-                                return 'rgba(255, 255, 255, 0.85)';
+                            backgroundColor: 'rgba(255, 255, 255, 0.95)',
+                            borderColor: function(context) {
+                                return context.hovered ? '#667eea' : '#ddd';
                             },
-                            borderColor: '#ccc',
                             borderWidth: 1,
                             borderRadius: 4,
-                            padding: 4
+                            padding: 5
                         }
                     },
                     scales: {
@@ -567,12 +579,12 @@
                                 text: 'AGI Likely Within 10 Years →',
                                 font: { size: 14, weight: 'bold' }
                             },
-                            min: 0.5,
-                            max: 5.5,
+                            min: minAgi,
+                            max: maxAgi,
                             ticks: {
-                                stepSize: 1,
+                                stepSize: 0.5,
                                 callback: function(value) {
-                                    return value;
+                                    return value.toFixed(1);
                                 }
                             },
                             grid: {
@@ -590,12 +602,12 @@
                                 text: '← Prioritize AI Safety (Inverted)',
                                 font: { size: 14, weight: 'bold' }
                             },
-                            min: 0.5,
-                            max: 5.5,
+                            min: minSafety,
+                            max: maxSafety,
                             ticks: {
-                                stepSize: 1,
+                                stepSize: 0.5,
                                 callback: function(value) {
-                                    return (6 - value).toFixed(0);
+                                    return (6 - value).toFixed(1);
                                 }
                             },
                             grid: {
@@ -614,20 +626,35 @@
         }
 
         function shouldShowLabel(index, allPoints) {
-            // Simple collision detection - show label if not too close to other points
             const point = allPoints[index];
-            const threshold = 0.4;
+
+            // Sort all points by count to prioritize showing labels for significant points
+            const sortedByCount = [...allPoints].sort((a, b) => b.count - a.count);
+            const topN = Math.min(15, Math.ceil(allPoints.length * 0.4)); // Show top 40% or max 15 labels
+
+            // Only consider showing labels for top N points
+            const isTopPoint = sortedByCount.slice(0, topN).includes(allPoints[index]);
+            if (!isTopPoint) return false;
+
+            // Check for overlaps with other visible labels
+            const threshold = 0.35; // Minimum distance between labels
 
             for (let i = 0; i < allPoints.length; i++) {
                 if (i === index) continue;
                 const other = allPoints[i];
+
+                // Only check against other points that would also show labels
+                const isOtherTop = sortedByCount.slice(0, topN).includes(other);
+                if (!isOtherTop) continue;
+
                 const distance = Math.sqrt(
                     Math.pow(point.x - other.x, 2) +
                     Math.pow(point.y - other.y, 2)
                 );
 
+                // Hide if too close to a point with more responses
                 if (distance < threshold && other.count > point.count) {
-                    return false; // Hide if too close to a larger point
+                    return false;
                 }
             }
 
