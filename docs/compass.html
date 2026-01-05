@@ -658,15 +658,15 @@
                 return { index: i, score: p.count + dist * 50, point: p };
             });
 
-            // Sort by score and take top 8
+            // Sort by score and take top candidates
             const sortedByScore = allScores.sort((a, b) => b.score - a.score);
-            const topN = 8;
+            const topN = 15; // Consider more candidates
             const isTopPoint = sortedByScore.slice(0, topN).some(s => s.index === index);
 
             if (!isTopPoint) return false;
 
-            // Very aggressive collision detection
-            const threshold = 0.5; // Larger threshold for more spacing
+            // Moderate collision detection
+            const threshold = 0.3; // Reduced for more labels
             const visiblePoints = sortedByScore.slice(0, topN);
 
             for (let other of visiblePoints) {
