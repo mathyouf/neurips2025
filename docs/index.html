@@ -97,7 +97,7 @@
 
         .pie-chart-wrapper {
             background: #f9f9f9;
-            padding: 20px;
+            padding: 40px;
             border: 1px solid #ddd;
         }
 
@@ -111,8 +111,9 @@
         .pie-chart-container {
             position: relative;
             width: 100%;
-            max-width: 350px;
+            max-width: 400px;
             margin: 0 auto;
+            padding: 20px;
         }
 
         .figure-caption {
@@ -425,16 +426,16 @@
                 const point = {
                     index: i,
                     x: d.x,
-                    y: d.invertedY,
+                    y: d.y,
                     count: d.count,
                     label: d.label
                 };
 
-                if (d.x < centerX && d.invertedY < centerY) {
+                if (d.x < centerX && d.y < centerY) {
                     quadrants.topLeft.push(point);
-                } else if (d.x >= centerX && d.invertedY < centerY) {
+                } else if (d.x >= centerX && d.y < centerY) {
                     quadrants.topRight.push(point);
-                } else if (d.x < centerX && d.invertedY >= centerY) {
+                } else if (d.x < centerX && d.y >= centerY) {
                     quadrants.bottomLeft.push(point);
                 } else {
                     quadrants.bottomRight.push(point);
@@ -512,11 +513,18 @@
             const canvas = document.getElementById('compassChart1');
             const ctx = canvas.getContext('2d');
 
-            let allData = [
+            let rawData = [
                 ...processedData.dinner,
                 ...processedData.workplace,
                 ...processedData.podcast
             ];
+
+            // Create allData with y set to invertedY for collision detection
+            let allData = rawData.map(d => ({
+                ...d,
+                displayY: d.invertedY,
+                y: d.invertedY  // For collision detection
+            }));
 
             const minVal = 1;
             const maxVal = 5;
@@ -527,19 +535,19 @@
                 label: 'Researchers',
                 data: allData.map(d => ({
                     x: d.x,
-                    y: d.invertedY,
+                    y: d.displayY,
                     label: d.label,
                     count: d.count,
                     xVal: d.x,
-                    yVal: d.y
+                    yVal: 6 - d.displayY  // Convert back to original safety value
                 })),
-                backgroundColor: allData.map(d => getColorForPoint(d.x, d.y)),
-                borderColor: allData.map(d => getBorderColorForPoint(d.x, d.y)),
+                backgroundColor: rawData.map(d => getColorForPoint(d.x, d.y)),
+                borderColor: rawData.map(d => getBorderColorForPoint(d.x, d.y)),
                 borderWidth: 1.5,
                 pointRadius: allData.map(d => Math.max(4, Math.sqrt(d.count) * 1.2)),
                 pointHoverRadius: allData.map(d => Math.max(4, Math.sqrt(d.count) * 1.2)),
-                pointHoverBackgroundColor: allData.map(d => getHoverColorForPoint(d.x, d.y)),
-                pointHoverBorderColor: allData.map(d => getBorderColorForPoint(d.x, d.y)),
+                pointHoverBackgroundColor: rawData.map(d => getHoverColorForPoint(d.x, d.y)),
+                pointHoverBorderColor: rawData.map(d => getBorderColorForPoint(d.x, d.y)),
                 pointHoverBorderWidth: 2.5,
             };
 
@@ -660,7 +668,7 @@
                 label: 'Researchers',
                 data: allData.map(d => ({
                     x: d.x,
-                    y: d.invertedY,
+                    y: d.y,  // Use regular Y, not inverted
                     label: d.label,
                     count: d.count,
                     xVal: d.x,
@@ -748,16 +756,13 @@
                         y: {
                             title: {
                                 display: true,
-                                text: '← Creativity Over Rigor (Inverted)',
+                                text: 'Creativity Over Rigor →',
                                 font: { size: 12, weight: 'bold', family: 'Times New Roman' }
                             },
                             min: minVal,
                             max: maxVal,
                             ticks: {
-                                stepSize: 1,
-                                callback: function(value) {
-                                    return 6 - value;
-                                }
+                                stepSize: 1
                             },
                             grid: {
                                 color: function(context) {
@@ -804,21 +809,23 @@
                         datalabels: {
                             color: '#000',
                             font: {
-                                size: 10,
+                                size: 9,
                                 weight: 'bold'
                             },
                             formatter: function(value, context) {
                                 const label = context.chart.data.labels[context.dataIndex];
                                 const total = context.dataset.data.reduce((a, b) => a + b, 0);
                                 const percentage = ((value / total) * 100).toFixed(0);
+                                if (percentage < 5) return '';  // Hide small slices
                                 return label + '\n' + percentage + '%';
                             },
-                            align: 'end',
+                            align: 'start',
                             anchor: 'end',
-                            offset: 10,
+                            offset: 4,
                             backgroundColor: 'rgba(255, 255, 255, 0.9)',
                             borderRadius: 3,
-                            padding: 4
+                            padding: 3,
+                            clamp: true
                         }
                     }
                 },
@@ -854,21 +861,23 @@
                         datalabels: {
                             color: '#000',
                             font: {
-                                size: 10,
+                                size: 9,
                                 weight: 'bold'
                             },
                             formatter: function(value, context) {
                                 const label = context.chart.data.labels[context.dataIndex];
                                 const total = context.dataset.data.reduce((a, b) => a + b, 0);
                                 const percentage = ((value / total) * 100).toFixed(0);
+                                if (percentage < 5) return '';  // Hide small slices
                                 return label + '\n' + percentage + '%';
                             },
-                            align: 'end',
+                            align: 'start',
                             anchor: 'end',
-                            offset: 10,
+                            offset: 4,
                             backgroundColor: 'rgba(255, 255, 255, 0.9)',
                             borderRadius: 3,
-                            padding: 4
+                            padding: 3,
+                            clamp: true
                         }
                     }
                 },
@@ -904,21 +913,23 @@
                         datalabels: {
                             color: '#000',
                             font: {
-                                size: 10,
+                                size: 9,
                                 weight: 'bold'
                             },
                             formatter: function(value, context) {
                                 const label = context.chart.data.labels[context.dataIndex];
                                 const total = context.dataset.data.reduce((a, b) => a + b, 0);
                                 const percentage = ((value / total) * 100).toFixed(0);
+                                if (percentage < 5) return '';  // Hide small slices
                                 return label + '\n' + percentage + '%';
                             },
-                            align: 'end',
+                            align: 'start',
                             anchor: 'end',
-                            offset: 10,
+                            offset: 4,
                             backgroundColor: 'rgba(255, 255, 255, 0.9)',
                             borderRadius: 3,
-                            padding: 4
+                            padding: 3,
+                            clamp: true
                         }
                     }
                 },
