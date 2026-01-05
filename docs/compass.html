@@ -666,35 +666,40 @@
                 return { index: i, score: p.count + dist * 50, point: p };
             });
 
-            // Sort by score and take top candidates
+            // Sort by score (highest first)
             const sortedByScore = allScores.sort((a, b) => b.score - a.score);
-            const topN = 15; // Consider more candidates
-            const isTopPoint = sortedByScore.slice(0, topN).some(s => s.index === index);
 
-            if (!isTopPoint) return false;
-
-            // Use global collision threshold
+            // Find which points should be shown (no collisions with higher-scored points)
             const threshold = collisionThreshold;
-            const visiblePoints = sortedByScore.slice(0, topN);
+            const shownLabels = [];
 
-            for (let other of visiblePoints) {
-                if (other.index === index) continue;
+            for (let candidate of sortedByScore) {
+                let hasCollision = false;
 
-                const distance = Math.sqrt(
-                    Math.pow(point.x - other.point.x, 2) +
-                    Math.pow(point.y - other.point.y, 2)
-                );
+                // Check collision with already-shown labels
+                for (let shown of shownLabels) {
+                    const distance = Math.sqrt(
+                        Math.pow(candidate.point.x - shown.point.x, 2) +
+                        Math.pow(candidate.point.y - shown.point.y, 2)
+                    );
 
-                // Hide if too close, prioritizing higher scores
-                if (distance < threshold) {
-                    const myScore = allScores[index].score;
-                    if (other.score > myScore) {
-                        return false;
+                    if (distance < threshold) {
+                        hasCollision = true;
+                        break;
                     }
                 }
+
+                // If no collision, add to shown labels
+                if (!hasCollision) {
+                    shownLabels.push(candidate);
+                }
+
+                // Stop after we have enough labels
+                if (shownLabels.length >= 20) break;
             }
 
-            return true;
+            // Check if this point should be shown
+            return shownLabels.some(s => s.index === index);
         }
 
         function updateStats() {
