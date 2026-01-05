@@ -302,6 +302,12 @@
                     <option value="podcast">Favorite ML Podcast</option>
                 </select>
             </div>
+            <div class="control-group" style="margin-top: 15px;">
+                <label for="thresholdSlider">Label Spacing:</label>
+                <input type="range" id="thresholdSlider" min="0.1" max="1.0" step="0.05" value="0.3" style="width: 200px; cursor: pointer;">
+                <span id="thresholdValue" style="margin-left: 10px; font-weight: 600; color: #667eea;">0.3</span>
+                <span style="margin-left: 10px; color: #666; font-size: 0.9em;">(Lower = More Labels)</span>
+            </div>
         </div>
 
         <div id="loading" class="loading">Loading survey data...</div>
@@ -368,6 +374,8 @@
             workplace: [],
             podcast: []
         };
+        let currentCategory = 'all';
+        let collisionThreshold = 0.3; // Global threshold for label spacing
 
         // Load and parse CSV data
         Papa.parse('neuripstwin7.csv', {
@@ -665,8 +673,8 @@
 
             if (!isTopPoint) return false;
 
-            // Moderate collision detection
-            const threshold = 0.3; // Reduced for more labels
+            // Use global collision threshold
+            const threshold = collisionThreshold;
             const visiblePoints = sortedByScore.slice(0, topN);
 
             for (let other of visiblePoints) {
@@ -726,7 +734,15 @@
 
         // Category selector
         document.getElementById('categorySelect').addEventListener('change', function(e) {
-            updateChart(e.target.value);
+            currentCategory = e.target.value;
+            updateChart(currentCategory);
+        });
+
+        // Threshold slider
+        document.getElementById('thresholdSlider').addEventListener('input', function(e) {
+            collisionThreshold = parseFloat(e.target.value);
+            document.getElementById('thresholdValue').textContent = collisionThreshold.toFixed(2);
+            updateChart(currentCategory);
         });
     </script>
 </body>
