@@ -376,6 +376,7 @@
         };
         let currentCategory = 'all';
         let collisionThreshold = 0.3; // Global threshold for label spacing
+        let visibleLabelIndices = new Set(); // Cache of which labels should be shown
 
         // Load and parse CSV data
         Papa.parse('neuripstwin7.csv', {
@@ -499,6 +500,9 @@
             const maxAgi = 5;
             const minSafety = 1;
             const maxSafety = 5;
+
+            // Pre-calculate which labels should be visible
+            calculateVisibleLabels(allData);
 
             // Create dataset with color coding
             const dataset = {
@@ -632,12 +636,15 @@
             });
         }
 
-        function shouldShowLabel(index, allPoints) {
-            const point = allPoints[index];
+        function calculateVisibleLabels(allData) {
+            // Clear previous cache
+            visibleLabelIndices.clear();
+
+            if (!allData || allData.length === 0) return;
 
             // Get bounds for calculating extremity
-            const agiValues = allPoints.map(d => d.x);
-            const safetyValues = allPoints.map(d => d.y);
+            const agiValues = allData.map(d => d.agi);
+            const safetyValues = allData.map(d => d.invertedSafety);
             const minX = Math.min(...agiValues);
             const maxX = Math.max(...agiValues);
             const minY = Math.min(...safetyValues);
@@ -645,25 +652,22 @@
             const rangeX = maxX - minX;
             const rangeY = maxY - minY;
 
-            // Calculate "extremity score" - how far from center
+            // Calculate center
             const centerX = (minX + maxX) / 2;
             const centerY = (minY + maxY) / 2;
-            const distanceFromCenter = Math.sqrt(
-                Math.pow((point.x - centerX) / rangeX, 2) +
-                Math.pow((point.y - centerY) / rangeY, 2)
-            );
-
-            // Combined score: high count OR extreme position
-            const extremityBonus = distanceFromCenter * 50;
-            const score = point.count + extremityBonus;
 
             // Calculate scores for all points
-            const allScores = allPoints.map((p, i) => {
+            const allScores = allData.map((d, i) => {
                 const dist = Math.sqrt(
-                    Math.pow((p.x - centerX) / rangeX, 2) +
-                    Math.pow((p.y - centerY) / rangeY, 2)
+                    Math.pow((d.agi - centerX) / rangeX, 2) +
+                    Math.pow((d.invertedSafety - centerY) / rangeY, 2)
                 );
-                return { index: i, score: p.count + dist * 50, point: p };
+                return {
+                    index: i,
+                    score: d.count + dist * 50,
+                    agi: d.agi,
+                    safety: d.invertedSafety
+                };
             });
 
             // Sort by score (highest first)
@@ -679,8 +683,8 @@
                 // Check collision with already-shown labels
                 for (let shown of shownLabels) {
                     const distance = Math.sqrt(
-                        Math.pow(candidate.point.x - shown.point.x, 2) +
-                        Math.pow(candidate.point.y - shown.point.y, 2)
+                        Math.pow(candidate.agi - shown.agi, 2) +
+                        Math.pow(candidate.safety - shown.safety, 2)
                     );
 
                     if (distance < threshold) {
@@ -692,14 +696,17 @@
                 // If no collision, add to shown labels
                 if (!hasCollision) {
                     shownLabels.push(candidate);
+                    visibleLabelIndices.add(candidate.index);
                 }
 
                 // Stop after we have enough labels
                 if (shownLabels.length >= 20) break;
             }
+        }
 
-            // Check if this point should be shown
-            return shownLabels.some(s => s.index === index);
+        function shouldShowLabel(index, allPoints) {
+            // Simply check if this index is in the pre-calculated set
+            return visibleLabelIndices.has(index);
         }
 
         function updateStats() {
