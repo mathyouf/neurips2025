@@ -662,9 +662,10 @@
                     Math.pow((d.agi - centerX) / rangeX, 2) +
                     Math.pow((d.invertedSafety - centerY) / rangeY, 2)
                 );
+                // Higher extremity bonus to prioritize corner/edge points
                 return {
                     index: i,
-                    score: d.count + dist * 50,
+                    score: d.count + dist * 100,
                     agi: d.agi,
                     safety: d.invertedSafety
                 };
