@@ -485,14 +485,12 @@
                 allData = processedData[category];
             }
 
-            // Calculate actual data bounds with padding
-            const agiValues = allData.map(d => d.agi);
-            const safetyValues = allData.map(d => d.invertedSafety);
-
-            const minAgi = Math.max(1, Math.floor(Math.min(...agiValues) * 10) / 10 - 0.3);
-            const maxAgi = Math.min(5, Math.ceil(Math.max(...agiValues) * 10) / 10 + 0.3);
-            const minSafety = Math.max(1, Math.floor(Math.min(...safetyValues) * 10) / 10 - 0.3);
-            const maxSafety = Math.min(5, Math.ceil(Math.max(...safetyValues) * 10) / 10 + 0.3);
+            // Use fixed bounds for Likert scale data (1-5)
+            // Data is averages of 1-5 responses, so bounds should be 1-5
+            const minAgi = 1;
+            const maxAgi = 5;
+            const minSafety = 1;
+            const maxSafety = 5;
 
             // Create dataset with color coding
             const dataset = {
@@ -582,9 +580,9 @@
                             min: minAgi,
                             max: maxAgi,
                             ticks: {
-                                stepSize: 0.5,
+                                stepSize: 1,
                                 callback: function(value) {
-                                    return value.toFixed(1);
+                                    return value;
                                 }
                             },
                             grid: {
@@ -605,17 +603,18 @@
                             min: minSafety,
                             max: maxSafety,
                             ticks: {
-                                stepSize: 0.5,
+                                stepSize: 1,
                                 callback: function(value) {
-                                    return (6 - value).toFixed(1);
+                                    // Show inverted values (1=5, 2=4, 3=3, 4=2, 5=1)
+                                    return 6 - value;
                                 }
                             },
                             grid: {
                                 color: function(context) {
-                                    return context.tick.value === 3.5 ? 'rgba(0, 0, 0, 0.3)' : 'rgba(0, 0, 0, 0.1)';
+                                    return context.tick.value === 3 ? 'rgba(0, 0, 0, 0.3)' : 'rgba(0, 0, 0, 0.1)';
                                 },
                                 lineWidth: function(context) {
-                                    return context.tick.value === 3.5 ? 2 : 1;
+                                    return context.tick.value === 3 ? 2 : 1;
                                 }
                             }
                         }
