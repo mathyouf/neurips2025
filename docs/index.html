@@ -289,6 +289,12 @@
                 document.getElementById('loading').style.display = 'none';
                 document.getElementById('content').style.display = 'block';
 
+                console.log('First compass data points:',
+                    processedData.dinner.length + processedData.workplace.length + processedData.podcast.length);
+                console.log('Second compass data points:',
+                    processedData2.dinner.length + processedData2.workplace.length + processedData2.podcast.length);
+                console.log('Sample from second compass:', processedData2.dinner.slice(0, 3));
+
                 createCompassChart1();
                 createCompassChart2();
                 createPieCharts();
