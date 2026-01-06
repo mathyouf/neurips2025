@@ -192,8 +192,10 @@
                         <div class="pie-chart-container">
                             <canvas id="dinnerPieChart"></canvas>
                         </div>
-                        <p style="font-size: 0.85em; text-align: center; margin-top: 10px; color: #666;">
-                            "Who would you most want to have dinner with?"
+                        <p style="font-size: 0.8em; text-align: center; margin-top: 15px; color: #333; line-height: 1.5;">
+                            <strong>Figure 2a:</strong> Distribution of respondents' preferred dinner companions.
+                            Survey item: "Who would you most want to have dinner with?" Shows categorical preferences
+                            for intellectual role models among NeurIPS attendees (n=335).
                         </p>
                     </div>
                     <div class="pie-chart-wrapper">
@@ -201,8 +203,10 @@
                         <div class="pie-chart-container">
                             <canvas id="workplacePieChart"></canvas>
                         </div>
-                        <p style="font-size: 0.85em; text-align: center; margin-top: 10px; color: #666;">
-                            "I would most want to work at:"
+                        <p style="font-size: 0.8em; text-align: center; margin-top: 15px; color: #333; line-height: 1.5;">
+                            <strong>Figure 2b:</strong> Distribution of respondents' preferred workplace organizations.
+                            Survey item: "I would most want to work at:" Reveals institutional preferences and
+                            career aspirations within the AI research community (n=335).
                         </p>
                     </div>
                     <div class="pie-chart-wrapper">
@@ -210,8 +214,10 @@
                         <div class="pie-chart-container">
                             <canvas id="podcastPieChart"></canvas>
                         </div>
-                        <p style="font-size: 0.85em; text-align: center; margin-top: 10px; color: #666;">
-                            "What is your favorite ML related podcast?"
+                        <p style="font-size: 0.8em; text-align: center; margin-top: 15px; color: #333; line-height: 1.5;">
+                            <strong>Figure 2c:</strong> Distribution of respondents' preferred ML-related podcasts.
+                            Survey item: "What is your favorite ML related podcast?" Captures media consumption
+                            patterns and information source preferences among researchers (n=335).
                         </p>
                     </div>
                 </div>
@@ -654,10 +660,9 @@
                 }),
                 borderWidth: 0.5,
                 pointRadius: 2,
-                pointHoverRadius: 3,
-                pointHoverBackgroundColor: individuals.map(ind => getColorForPoint(ind.originalX, ind.originalY)),
-                pointHoverBorderColor: individuals.map(ind => getBorderColorForPoint(ind.originalX, ind.originalY)),
-                pointHoverBorderWidth: 1.5,
+                pointHoverRadius: 2,  // No hover size change
+                pointStyle: 'circle',
+                hitRadius: 0,  // Make individual points non-interactive
                 datalabels: {
                     display: false  // No labels for individual points
                 }
@@ -744,6 +749,11 @@
                             // Only trigger on category dataset (index 1)
                             if (datasetIndex === 1) {
                                 const categoryLabel = categoryDataset.data[dataIndex].categoryLabel;
+
+                                // Skip if already hovering this category
+                                if (hoveredCategory1 === categoryLabel) return;
+                                hoveredCategory1 = categoryLabel;
+
                                 const categoryPoint = categoryDataset.data[dataIndex];
 
                                 // Find matching individuals and their indices
@@ -774,6 +784,7 @@
                             }
                         } else {
                             // Reset to default when not hovering
+                            hoveredCategory1 = null;
                             hoveredCategoryPoint1 = null;
                             chart1Instance.data.datasets[0].backgroundColor = individuals.map(ind => {
                                 const color = getColorForPoint(ind.originalX, ind.originalY);
@@ -793,8 +804,8 @@
                                 text: 'AGI Likely Within 10 Years →',
                                 font: { size: 12, weight: 'bold', family: 'Times New Roman' }
                             },
-                            min: minVal,
-                            max: maxVal,
+                            min: 0.85,
+                            max: 5.15,
                             ticks: { stepSize: 1 },
                             grid: {
                                 color: function(context) {
@@ -811,8 +822,8 @@
                                 text: '← Prioritize AI Safety (Inverted)',
                                 font: { size: 12, weight: 'bold', family: 'Times New Roman' }
                             },
-                            min: minVal,
-                            max: maxVal,
+                            min: 0.85,
+                            max: 5.15,
                             ticks: {
                                 stepSize: 1,
                                 callback: function(value) {
@@ -882,10 +893,9 @@
                 }),
                 borderWidth: 0.5,
                 pointRadius: 2,
-                pointHoverRadius: 3,
-                pointHoverBackgroundColor: individuals.map(ind => getColorForPoint(ind.originalX, ind.originalY)),
-                pointHoverBorderColor: individuals.map(ind => getBorderColorForPoint(ind.originalX, ind.originalY)),
-                pointHoverBorderWidth: 1.5,
+                pointHoverRadius: 2,  // No hover size change
+                pointStyle: 'circle',
+                hitRadius: 0,  // Make individual points non-interactive
                 datalabels: {
                     display: false
                 }
@@ -972,6 +982,11 @@
                             // Only trigger on category dataset (index 1)
                             if (datasetIndex === 1) {
                                 const categoryLabel = categoryDataset.data[dataIndex].categoryLabel;
+
+                                // Skip if already hovering this category
+                                if (hoveredCategory2 === categoryLabel) return;
+                                hoveredCategory2 = categoryLabel;
+
                                 const categoryPoint = categoryDataset.data[dataIndex];
 
                                 // Find matching individuals and their indices
@@ -1002,6 +1017,7 @@
                             }
                         } else {
                             // Reset to default when not hovering
+                            hoveredCategory2 = null;
                             hoveredCategoryPoint2 = null;
                             chart2Instance.data.datasets[0].backgroundColor = individuals.map(ind => {
                                 const color = getColorForPoint(ind.originalX, ind.originalY);
@@ -1021,8 +1037,8 @@
                                 text: 'Prefer Prototypes Over Papers →',
                                 font: { size: 12, weight: 'bold', family: 'Times New Roman' }
                             },
-                            min: minVal,
-                            max: maxVal,
+                            min: 0.85,
+                            max: 5.15,
                             ticks: { stepSize: 1 },
                             grid: {
                                 color: function(context) {
@@ -1039,8 +1055,8 @@
                                 text: 'Creativity Over Rigor →',
                                 font: { size: 12, weight: 'bold', family: 'Times New Roman' }
                             },
-                            min: minVal,
-                            max: maxVal,
+                            min: 0.85,
+                            max: 5.15,
                             ticks: {
                                 stepSize: 1
                             },
