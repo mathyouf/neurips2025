@@ -790,14 +790,26 @@
                                 hoveredCategory1 = null;
 
                                 // Dim all category points except the ones this individual chose
-                                const categoryColors = allData.map((cat, idx) => {
+                                const categoryColors = rawData.map((d, idx) => {
+                                    const baseColor = getColorForPoint(d.x, d.y);
                                     const isMatch = categoryIndices.includes(idx);
-                                    if (isMatch) return getHoverColorForPoint(cat.x, cat.y);
-                                    const color = getColorForPoint(cat.x, cat.y);
-                                    return color.replace(/[\d.]+\)$/, '0.15)');
+                                    // Keep base color, just reduce opacity for non-matches
+                                    return isMatch ? baseColor : baseColor.replace(/[\d.]+\)$/, '0.15)');
+                                });
+
+                                // Add bright border to matching categories
+                                const categoryBorders = rawData.map((d, idx) => {
+                                    const isMatch = categoryIndices.includes(idx);
+                                    return isMatch ? 'rgba(255, 215, 0, 1)' : getBorderColorForPoint(d.x, d.y);
+                                });
+
+                                const categoryBorderWidths = allData.map((d, idx) => {
+                                    return categoryIndices.includes(idx) ? 3 : 1.5;
                                 });
 
                                 chart1Instance.data.datasets[1].backgroundColor = categoryColors;
+                                chart1Instance.data.datasets[1].borderColor = categoryBorders;
+                                chart1Instance.data.datasets[1].borderWidth = categoryBorderWidths;
 
                                 // Force labels to show for matching categories
                                 chart1Instance.data.datasets[1].datalabels = {
@@ -861,8 +873,10 @@
                                 return color.replace('rgb', 'rgba').replace(')', ', 0.4)');
                             });
 
-                            // Reset category colors
+                            // Reset category colors and borders
                             chart1Instance.data.datasets[1].backgroundColor = rawData.map(d => getColorForPoint(d.x, d.y));
+                            chart1Instance.data.datasets[1].borderColor = rawData.map(d => getBorderColorForPoint(d.x, d.y));
+                            chart1Instance.data.datasets[1].borderWidth = 1.5;
 
                             chart1Instance.update('none');
                         }
@@ -1071,14 +1085,26 @@
                                 hoveredCategory2 = null;
 
                                 // Dim all category points except the ones this individual chose
-                                const categoryColors = allData.map((cat, idx) => {
+                                const categoryColors = allData.map((d, idx) => {
+                                    const baseColor = getColorForPoint(d.x, d.y);
                                     const isMatch = categoryIndices.includes(idx);
-                                    if (isMatch) return getHoverColorForPoint(cat.x, cat.y);
-                                    const color = getColorForPoint(cat.x, cat.y);
-                                    return color.replace(/[\d.]+\)$/, '0.15)');
+                                    // Keep base color, just reduce opacity for non-matches
+                                    return isMatch ? baseColor : baseColor.replace(/[\d.]+\)$/, '0.15)');
+                                });
+
+                                // Add bright border to matching categories
+                                const categoryBorders = allData.map((d, idx) => {
+                                    const isMatch = categoryIndices.includes(idx);
+                                    return isMatch ? 'rgba(255, 215, 0, 1)' : getBorderColorForPoint(d.x, d.y);
+                                });
+
+                                const categoryBorderWidths = allData.map((d, idx) => {
+                                    return categoryIndices.includes(idx) ? 3 : 1.5;
                                 });
 
                                 chart2Instance.data.datasets[1].backgroundColor = categoryColors;
+                                chart2Instance.data.datasets[1].borderColor = categoryBorders;
+                                chart2Instance.data.datasets[1].borderWidth = categoryBorderWidths;
 
                                 // Force labels to show for matching categories
                                 chart2Instance.data.datasets[1].datalabels = {
@@ -1142,8 +1168,10 @@
                                 return color.replace('rgb', 'rgba').replace(')', ', 0.4)');
                             });
 
-                            // Reset category colors
+                            // Reset category colors and borders
                             chart2Instance.data.datasets[1].backgroundColor = allData.map(d => getColorForPoint(d.x, d.y));
+                            chart2Instance.data.datasets[1].borderColor = allData.map(d => getBorderColorForPoint(d.x, d.y));
+                            chart2Instance.data.datasets[1].borderWidth = 1.5;
 
                             chart2Instance.update('none');
                         }
