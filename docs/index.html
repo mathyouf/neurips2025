@@ -685,6 +685,7 @@
                 pointHoverRadius: 3,  // Slightly larger on hover
                 pointStyle: 'circle',
                 hitRadius: 3,  // Small hit area for individual points
+                order: 2,  // Draw individual points first (behind categories)
                 datalabels: {
                     display: false  // No labels for individual points
                 }
@@ -693,6 +694,7 @@
             // Create category averages dataset
             const categoryDataset = {
                 label: 'Category Averages',
+                order: 1,  // Draw category points last (on top of individuals)
                 data: allData.map(d => ({
                     x: d.x,
                     y: d.displayY,
@@ -811,11 +813,11 @@
                                 chart1Instance.data.datasets[1].borderColor = categoryBorders;
                                 chart1Instance.data.datasets[1].borderWidth = categoryBorderWidths;
 
-                                // Force labels to show for matching categories
+                                // Force labels to show ONLY for matching categories
                                 chart1Instance.data.datasets[1].datalabels = {
                                     ...chart1Instance.data.datasets[1].datalabels,
                                     display: function(context) {
-                                        return categoryIndices.includes(context.dataIndex) || visibleLabelIndices1.has(context.dataIndex);
+                                        return categoryIndices.includes(context.dataIndex);
                                     }
                                 };
 
@@ -824,6 +826,7 @@
                             // Handle category point hover (dataset index 1)
                             else if (datasetIndex === 1) {
                                 const categoryLabel = categoryDataset.data[dataIndex].categoryLabel;
+                                const hoveredCategoryIndex = dataIndex;
 
                                 // Skip if already hovering this category
                                 if (hoveredCategory1 === categoryLabel) return;
@@ -856,6 +859,15 @@
 
                                 chart1Instance.data.datasets[0].backgroundColor = colors;
                                 chart1Instance.data.datasets[0].borderColor = borderColors;
+
+                                // Force the hovered category label to show
+                                chart1Instance.data.datasets[1].datalabels = {
+                                    ...chart1Instance.data.datasets[1].datalabels,
+                                    display: function(context) {
+                                        return context.dataIndex === hoveredCategoryIndex || visibleLabelIndices1.has(context.dataIndex);
+                                    }
+                                };
+
                                 chart1Instance.update('none');
                             }
                         } else {
@@ -890,7 +902,13 @@
                             },
                             min: 0.85,
                             max: 5.15,
-                            ticks: { stepSize: 1 },
+                            ticks: {
+                                stepSize: 1,
+                                callback: function(value) {
+                                    // Only show integer ticks from 1-5
+                                    return (value >= 1 && value <= 5 && Number.isInteger(value)) ? value : '';
+                                }
+                            },
                             grid: {
                                 color: function(context) {
                                     return context.tick.value === 3 ? 'rgba(0, 0, 0, 0.3)' : 'rgba(0, 0, 0, 0.1)';
@@ -980,6 +998,7 @@
                 pointHoverRadius: 3,  // Slightly larger on hover
                 pointStyle: 'circle',
                 hitRadius: 3,  // Small hit area for individual points
+                order: 2,  // Draw individual points first (behind categories)
                 datalabels: {
                     display: false
                 }
@@ -988,6 +1007,7 @@
             // Create category averages dataset
             const categoryDataset = {
                 label: 'Category Averages',
+                order: 1,  // Draw category points last (on top of individuals)
                 data: allData.map(d => ({
                     x: d.x,
                     y: d.y,  // Use regular Y, not inverted
@@ -1106,11 +1126,11 @@
                                 chart2Instance.data.datasets[1].borderColor = categoryBorders;
                                 chart2Instance.data.datasets[1].borderWidth = categoryBorderWidths;
 
-                                // Force labels to show for matching categories
+                                // Force labels to show ONLY for matching categories
                                 chart2Instance.data.datasets[1].datalabels = {
                                     ...chart2Instance.data.datasets[1].datalabels,
                                     display: function(context) {
-                                        return categoryIndices.includes(context.dataIndex) || visibleLabelIndices2.has(context.dataIndex);
+                                        return categoryIndices.includes(context.dataIndex);
                                     }
                                 };
 
@@ -1119,6 +1139,7 @@
                             // Handle category point hover (dataset index 1)
                             else if (datasetIndex === 1) {
                                 const categoryLabel = categoryDataset.data[dataIndex].categoryLabel;
+                                const hoveredCategoryIndex = dataIndex;
 
                                 // Skip if already hovering this category
                                 if (hoveredCategory2 === categoryLabel) return;
@@ -1151,6 +1172,15 @@
 
                                 chart2Instance.data.datasets[0].backgroundColor = colors;
                                 chart2Instance.data.datasets[0].borderColor = borderColors;
+
+                                // Force the hovered category label to show
+                                chart2Instance.data.datasets[1].datalabels = {
+                                    ...chart2Instance.data.datasets[1].datalabels,
+                                    display: function(context) {
+                                        return context.dataIndex === hoveredCategoryIndex || visibleLabelIndices2.has(context.dataIndex);
+                                    }
+                                };
+
                                 chart2Instance.update('none');
                             }
                         } else {
@@ -1185,7 +1215,13 @@
                             },
                             min: 0.85,
                             max: 5.15,
-                            ticks: { stepSize: 1 },
+                            ticks: {
+                                stepSize: 1,
+                                callback: function(value) {
+                                    // Only show integer ticks from 1-5
+                                    return (value >= 1 && value <= 5 && Number.isInteger(value)) ? value : '';
+                                }
+                            },
                             grid: {
                                 color: function(context) {
                                     return context.tick.value === 3 ? 'rgba(0, 0, 0, 0.3)' : 'rgba(0, 0, 0, 0.1)';
