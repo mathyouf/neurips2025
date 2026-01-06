@@ -267,6 +267,8 @@
         let chart2Instance = null;
         let hoveredCategoryPoint1 = null;  // Stores {x, y, matches: [indices]}
         let hoveredCategoryPoint2 = null;  // Stores {x, y, matches: [indices]}
+        let hoveredIndividual1 = null;  // Stores {x, y, categoryIndices: [indices]}
+        let hoveredIndividual2 = null;  // Stores {x, y, categoryIndices: [indices]}
 
         Papa.parse('neuripstwin7.csv', {
             download: true,
@@ -339,33 +341,53 @@
             id: 'connectionLines',
             beforeDatasetsDraw(chart, args, options) {
                 const { ctx, chartArea, scales } = chart;
-                const hoveredPoint = chart.canvas.id === 'compassChart1' ? hoveredCategoryPoint1 : hoveredCategoryPoint2;
-
-                if (!hoveredPoint || !hoveredPoint.matches || hoveredPoint.matches.length === 0) {
-                    return;
-                }
-
-                const individualDataset = chart.data.datasets[0];  // Individual respondents dataset
+                const isChart1 = chart.canvas.id === 'compassChart1';
+                const hoveredCategoryPoint = isChart1 ? hoveredCategoryPoint1 : hoveredCategoryPoint2;
+                const hoveredIndividual = isChart1 ? hoveredIndividual1 : hoveredIndividual2;
 
                 ctx.save();
-                ctx.strokeStyle = 'rgba(100, 100, 255, 0.2)';
-                ctx.lineWidth = 1;
+                ctx.strokeStyle = 'rgba(100, 100, 255, 0.3)';
+                ctx.lineWidth = 1.5;
 
-                // Draw lines from category point to each matching individual
-                hoveredPoint.matches.forEach(index => {
-                    const individual = individualDataset.data[index];
-                    if (!individual) return;
+                // Draw lines from category point to matching individuals
+                if (hoveredCategoryPoint && hoveredCategoryPoint.matches && hoveredCategoryPoint.matches.length > 0) {
+                    const individualDataset = chart.data.datasets[0];
 
-                    const categoryX = scales.x.getPixelForValue(hoveredPoint.x);
-                    const categoryY = scales.y.getPixelForValue(hoveredPoint.y);
-                    const indX = scales.x.getPixelForValue(individual.x);
-                    const indY = scales.y.getPixelForValue(individual.y);
+                    hoveredCategoryPoint.matches.forEach(index => {
+                        const individual = individualDataset.data[index];
+                        if (!individual) return;
 
-                    ctx.beginPath();
-                    ctx.moveTo(categoryX, categoryY);
-                    ctx.lineTo(indX, indY);
-                    ctx.stroke();
-                });
+                        const categoryX = scales.x.getPixelForValue(hoveredCategoryPoint.x);
+                        const categoryY = scales.y.getPixelForValue(hoveredCategoryPoint.y);
+                        const indX = scales.x.getPixelForValue(individual.x);
+                        const indY = scales.y.getPixelForValue(individual.y);
+
+                        ctx.beginPath();
+                        ctx.moveTo(categoryX, categoryY);
+                        ctx.lineTo(indX, indY);
+                        ctx.stroke();
+                    });
+                }
+
+                // Draw lines from individual to their category choices
+                if (hoveredIndividual && hoveredIndividual.categoryIndices && hoveredIndividual.categoryIndices.length > 0) {
+                    const categoryDataset = chart.data.datasets[1];
+
+                    hoveredIndividual.categoryIndices.forEach(index => {
+                        const category = categoryDataset.data[index];
+                        if (!category) return;
+
+                        const indX = scales.x.getPixelForValue(hoveredIndividual.x);
+                        const indY = scales.y.getPixelForValue(hoveredIndividual.y);
+                        const categoryX = scales.x.getPixelForValue(category.x);
+                        const categoryY = scales.y.getPixelForValue(category.y);
+
+                        ctx.beginPath();
+                        ctx.moveTo(indX, indY);
+                        ctx.lineTo(categoryX, categoryY);
+                        ctx.stroke();
+                    });
+                }
 
                 ctx.restore();
             }
@@ -660,9 +682,9 @@
                 }),
                 borderWidth: 0.5,
                 pointRadius: 2,
-                pointHoverRadius: 2,  // No hover size change
+                pointHoverRadius: 3,  // Slightly larger on hover
                 pointStyle: 'circle',
-                hitRadius: 0,  // Make individual points non-interactive
+                hitRadius: 3,  // Small hit area for individual points
                 datalabels: {
                     display: false  // No labels for individual points
                 }
@@ -746,8 +768,49 @@
                             const datasetIndex = element.datasetIndex;
                             const dataIndex = element.index;
 
-                            // Only trigger on category dataset (index 1)
-                            if (datasetIndex === 1) {
+                            // Handle individual point hover (dataset index 0)
+                            if (datasetIndex === 0) {
+                                const individual = individuals[dataIndex];
+
+                                // Find which category points match this individual's choices
+                                const categoryIndices = [];
+                                allData.forEach((cat, idx) => {
+                                    if (Object.values(individual.categories).includes(cat.label)) {
+                                        categoryIndices.push(idx);
+                                    }
+                                });
+
+                                // Store for line drawing
+                                hoveredIndividual1 = {
+                                    x: individual.x,
+                                    y: 6 - individual.y,  // Use display Y (inverted)
+                                    categoryIndices: categoryIndices
+                                };
+                                hoveredCategoryPoint1 = null;
+                                hoveredCategory1 = null;
+
+                                // Dim all category points except the ones this individual chose
+                                const categoryColors = allData.map((cat, idx) => {
+                                    const isMatch = categoryIndices.includes(idx);
+                                    if (isMatch) return getHoverColorForPoint(cat.x, cat.y);
+                                    const color = getColorForPoint(cat.x, cat.y);
+                                    return color.replace(/[\d.]+\)$/, '0.15)');
+                                });
+
+                                chart1Instance.data.datasets[1].backgroundColor = categoryColors;
+
+                                // Force labels to show for matching categories
+                                chart1Instance.data.datasets[1].datalabels = {
+                                    ...chart1Instance.data.datasets[1].datalabels,
+                                    display: function(context) {
+                                        return categoryIndices.includes(context.dataIndex) || visibleLabelIndices1.has(context.dataIndex);
+                                    }
+                                };
+
+                                chart1Instance.update('none');
+                            }
+                            // Handle category point hover (dataset index 1)
+                            else if (datasetIndex === 1) {
                                 const categoryLabel = categoryDataset.data[dataIndex].categoryLabel;
 
                                 // Skip if already hovering this category
@@ -777,6 +840,7 @@
                                     y: categoryPoint.y,
                                     matches: matchingIndices
                                 };
+                                hoveredIndividual1 = null;
 
                                 chart1Instance.data.datasets[0].backgroundColor = colors;
                                 chart1Instance.data.datasets[0].borderColor = borderColors;
@@ -786,6 +850,8 @@
                             // Reset to default when not hovering
                             hoveredCategory1 = null;
                             hoveredCategoryPoint1 = null;
+                            hoveredIndividual1 = null;
+
                             chart1Instance.data.datasets[0].backgroundColor = individuals.map(ind => {
                                 const color = getColorForPoint(ind.originalX, ind.originalY);
                                 return color.replace(/[\d.]+\)$/, '0.2)');
@@ -794,6 +860,10 @@
                                 const color = getBorderColorForPoint(ind.originalX, ind.originalY);
                                 return color.replace('rgb', 'rgba').replace(')', ', 0.4)');
                             });
+
+                            // Reset category colors
+                            chart1Instance.data.datasets[1].backgroundColor = rawData.map(d => getColorForPoint(d.x, d.y));
+
                             chart1Instance.update('none');
                         }
                     },
@@ -893,9 +963,9 @@
                 }),
                 borderWidth: 0.5,
                 pointRadius: 2,
-                pointHoverRadius: 2,  // No hover size change
+                pointHoverRadius: 3,  // Slightly larger on hover
                 pointStyle: 'circle',
-                hitRadius: 0,  // Make individual points non-interactive
+                hitRadius: 3,  // Small hit area for individual points
                 datalabels: {
                     display: false
                 }
@@ -979,8 +1049,49 @@
                             const datasetIndex = element.datasetIndex;
                             const dataIndex = element.index;
 
-                            // Only trigger on category dataset (index 1)
-                            if (datasetIndex === 1) {
+                            // Handle individual point hover (dataset index 0)
+                            if (datasetIndex === 0) {
+                                const individual = individuals[dataIndex];
+
+                                // Find which category points match this individual's choices
+                                const categoryIndices = [];
+                                allData.forEach((cat, idx) => {
+                                    if (Object.values(individual.categories).includes(cat.label)) {
+                                        categoryIndices.push(idx);
+                                    }
+                                });
+
+                                // Store for line drawing
+                                hoveredIndividual2 = {
+                                    x: individual.x,
+                                    y: individual.y,  // No inversion for second chart
+                                    categoryIndices: categoryIndices
+                                };
+                                hoveredCategoryPoint2 = null;
+                                hoveredCategory2 = null;
+
+                                // Dim all category points except the ones this individual chose
+                                const categoryColors = allData.map((cat, idx) => {
+                                    const isMatch = categoryIndices.includes(idx);
+                                    if (isMatch) return getHoverColorForPoint(cat.x, cat.y);
+                                    const color = getColorForPoint(cat.x, cat.y);
+                                    return color.replace(/[\d.]+\)$/, '0.15)');
+                                });
+
+                                chart2Instance.data.datasets[1].backgroundColor = categoryColors;
+
+                                // Force labels to show for matching categories
+                                chart2Instance.data.datasets[1].datalabels = {
+                                    ...chart2Instance.data.datasets[1].datalabels,
+                                    display: function(context) {
+                                        return categoryIndices.includes(context.dataIndex) || visibleLabelIndices2.has(context.dataIndex);
+                                    }
+                                };
+
+                                chart2Instance.update('none');
+                            }
+                            // Handle category point hover (dataset index 1)
+                            else if (datasetIndex === 1) {
                                 const categoryLabel = categoryDataset.data[dataIndex].categoryLabel;
 
                                 // Skip if already hovering this category
@@ -1010,6 +1121,7 @@
                                     y: categoryPoint.y,
                                     matches: matchingIndices
                                 };
+                                hoveredIndividual2 = null;
 
                                 chart2Instance.data.datasets[0].backgroundColor = colors;
                                 chart2Instance.data.datasets[0].borderColor = borderColors;
@@ -1019,6 +1131,8 @@
                             // Reset to default when not hovering
                             hoveredCategory2 = null;
                             hoveredCategoryPoint2 = null;
+                            hoveredIndividual2 = null;
+
                             chart2Instance.data.datasets[0].backgroundColor = individuals.map(ind => {
                                 const color = getColorForPoint(ind.originalX, ind.originalY);
                                 return color.replace(/[\d.]+\)$/, '0.2)');
@@ -1027,6 +1141,10 @@
                                 const color = getBorderColorForPoint(ind.originalX, ind.originalY);
                                 return color.replace('rgb', 'rgba').replace(')', ', 0.4)');
                             });
+
+                            // Reset category colors
+                            chart2Instance.data.datasets[1].backgroundColor = allData.map(d => getColorForPoint(d.x, d.y));
+
                             chart2Instance.update('none');
                         }
                     },
