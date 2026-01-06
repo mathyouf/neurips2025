@@ -174,10 +174,13 @@
                 </div>
                 <div class="figure-caption">
                     <strong>Figure 1:</strong> Political compass mapping AI researcher positions based on AGI timeline
-                    beliefs (X-axis, 1-5 Likert scale) and AI safety priorities (Y-axis, inverted 1-5 scale). Each point
-                    represents the average position of researchers sharing a categorical preference. Color indicates
+                    beliefs (X-axis: "I believe AGI is likely within the next 10 years", 1-5 Likert scale) and AI safety
+                    priorities (Y-axis: "We should slow down AI progress until safety is better understood", inverted 1-5 scale).
+                    Each large point represents the average position of researchers sharing a categorical preference.
+                    Small gray dots represent individual respondents (with jitter to prevent overlap). Color indicates
                     safety priority through a blue-white-red gradient (blue = move fast, red = prioritize safety).
-                    Opacity encodes AGI timeline belief strength (faint = skeptical, solid = believer).
+                    Opacity encodes AGI timeline belief strength (faint = skeptical, solid = believer). Hover over a
+                    category to highlight its respondents.
                 </div>
             </section>
 
@@ -189,18 +192,27 @@
                         <div class="pie-chart-container">
                             <canvas id="dinnerPieChart"></canvas>
                         </div>
+                        <p style="font-size: 0.85em; text-align: center; margin-top: 10px; color: #666;">
+                            "Who would you most want to have dinner with?"
+                        </p>
                     </div>
                     <div class="pie-chart-wrapper">
                         <h3>Preferred Workplace</h3>
                         <div class="pie-chart-container">
                             <canvas id="workplacePieChart"></canvas>
                         </div>
+                        <p style="font-size: 0.85em; text-align: center; margin-top: 10px; color: #666;">
+                            "I would most want to work at:"
+                        </p>
                     </div>
                     <div class="pie-chart-wrapper">
                         <h3>Favorite ML Podcast</h3>
                         <div class="pie-chart-container">
                             <canvas id="podcastPieChart"></canvas>
                         </div>
+                        <p style="font-size: 0.85em; text-align: center; margin-top: 10px; color: #666;">
+                            "What is your favorite ML related podcast?"
+                        </p>
                     </div>
                 </div>
             </section>
@@ -212,9 +224,12 @@
                 </div>
                 <div class="figure-caption">
                     <strong>Figure 2:</strong> Second political compass showing the relationship between preference for
-                    prototypes vs. papers (X-axis) and belief in creativity vs. rigor (Y-axis). Color encodes Y-axis
+                    prototypes vs. papers (X-axis: "I'd rather build a working prototype than write a perfect paper", 1-5 scale)
+                    and belief in creativity vs. rigor (Y-axis: "I believe creativity is more important than rigor in research", 1-5 scale).
+                    Each large point represents the average position of researchers sharing a categorical preference.
+                    Small gray dots represent individual respondents (with jitter to prevent overlap). Color encodes Y-axis
                     position (blue = rigor-focused, red = creativity-focused). Opacity encodes X-axis belief strength
-                    (faint = prefer papers, solid = prefer prototypes).
+                    (faint = prefer papers, solid = prefer prototypes). Hover over a category to highlight its respondents.
                 </div>
             </section>
         </div>
@@ -239,6 +254,10 @@
         const collisionThreshold = 0.2;
         let visibleLabelIndices1 = new Set();
         let visibleLabelIndices2 = new Set();
+        let hoveredCategory1 = null;
+        let hoveredCategory2 = null;
+        let chart1Instance = null;
+        let chart2Instance = null;
 
         Papa.parse('neuripstwin7.csv', {
             download: true,
@@ -305,6 +324,37 @@
                 document.getElementById('loading').innerHTML = 'Error loading data. Please check the console.';
             }
         });
+
+        function addJitter(value, amount = 0.08) {
+            return value + (Math.random() - 0.5) * amount;
+        }
+
+        function processIndividualRespondents(xCol, yCol, categories) {
+            const individuals = [];
+
+            surveyData.forEach((row, idx) => {
+                const x = parseFloat(row[xCol]);
+                const y = parseFloat(row[yCol]);
+
+                if (!isNaN(x) && !isNaN(y)) {
+                    const categoryValues = {};
+                    categories.forEach(cat => {
+                        categoryValues[cat.col] = row[cat.col];
+                    });
+
+                    individuals.push({
+                        x: addJitter(x),
+                        y: addJitter(y),
+                        originalX: x,
+                        originalY: y,
+                        categories: categoryValues,
+                        respondentId: idx
+                    });
+                }
+            });
+
+            return individuals;
+        }
 
         function processCategory(categoryCol, xCol, yCol, minCount) {
             const groups = {};
@@ -531,15 +581,50 @@
 
             calculateVisibleLabels(allData, visibleLabelIndices1);
 
-            const dataset = {
-                label: 'Researchers',
+            // Process individual respondents
+            const individuals = processIndividualRespondents(
+                'I believe AGI is likely within the next 10 years.',
+                'We should slow down AI progress until safety is better understood.',
+                [
+                    {col: 'Who would you most want to have dinner with?'},
+                    {col: 'I would most want to work at:'},
+                    {col: 'What is your favorite ML related podcast?'}
+                ]
+            );
+
+            // Create individual points dataset (rendered first, so behind category points)
+            const individualDataset = {
+                label: 'Individual Respondents',
+                data: individuals.map(ind => ({
+                    x: ind.x,
+                    y: 6 - ind.y,  // Invert Y for display
+                    categories: ind.categories,
+                    respondentId: ind.respondentId
+                })),
+                backgroundColor: 'rgba(150, 150, 150, 0.15)',
+                borderColor: 'rgba(150, 150, 150, 0.3)',
+                borderWidth: 0.5,
+                pointRadius: 2,
+                pointHoverRadius: 3,
+                pointHoverBackgroundColor: 'rgba(100, 100, 255, 0.6)',
+                pointHoverBorderColor: 'rgba(100, 100, 255, 1)',
+                pointHoverBorderWidth: 1.5,
+                datalabels: {
+                    display: false  // No labels for individual points
+                }
+            };
+
+            // Create category averages dataset
+            const categoryDataset = {
+                label: 'Category Averages',
                 data: allData.map(d => ({
                     x: d.x,
                     y: d.displayY,
                     label: d.label,
                     count: d.count,
                     xVal: d.x,
-                    yVal: 6 - d.displayY  // Convert back to original safety value
+                    yVal: 6 - d.displayY,  // Convert back to original safety value
+                    categoryLabel: d.label
                 })),
                 backgroundColor: rawData.map(d => getColorForPoint(d.x, d.y)),
                 borderColor: rawData.map(d => getBorderColorForPoint(d.x, d.y)),
@@ -551,9 +636,9 @@
                 pointHoverBorderWidth: 2.5,
             };
 
-            new Chart(ctx, {
+            chart1Instance = new Chart(ctx, {
                 type: 'scatter',
-                data: { datasets: [dataset] },
+                data: { datasets: [individualDataset, categoryDataset] },
                 options: {
                     responsive: true,
                     maintainAspectRatio: true,
@@ -599,6 +684,37 @@
                             borderWidth: 1,
                             borderRadius: 3,
                             padding: 4
+                        }
+                    },
+                    onHover: function(event, activeElements) {
+                        if (activeElements.length > 0) {
+                            const element = activeElements[0];
+                            const datasetIndex = element.datasetIndex;
+                            const dataIndex = element.index;
+
+                            // Only trigger on category dataset (index 1)
+                            if (datasetIndex === 1) {
+                                const categoryLabel = categoryDataset.data[dataIndex].categoryLabel;
+
+                                // Update individual points colors based on matching categories
+                                const colors = individuals.map(ind => {
+                                    const matches = Object.values(ind.categories).includes(categoryLabel);
+                                    return matches ? 'rgba(100, 100, 255, 0.7)' : 'rgba(150, 150, 150, 0.15)';
+                                });
+                                const borderColors = individuals.map(ind => {
+                                    const matches = Object.values(ind.categories).includes(categoryLabel);
+                                    return matches ? 'rgba(100, 100, 255, 1)' : 'rgba(150, 150, 150, 0.3)';
+                                });
+
+                                chart1Instance.data.datasets[0].backgroundColor = colors;
+                                chart1Instance.data.datasets[0].borderColor = borderColors;
+                                chart1Instance.update('none');
+                            }
+                        } else {
+                            // Reset to default when not hovering
+                            chart1Instance.data.datasets[0].backgroundColor = 'rgba(150, 150, 150, 0.15)';
+                            chart1Instance.data.datasets[0].borderColor = 'rgba(150, 150, 150, 0.3)';
+                            chart1Instance.update('none');
                         }
                     },
                     scales: {
@@ -664,15 +780,50 @@
 
             calculateVisibleLabels(allData, visibleLabelIndices2);
 
-            const dataset = {
-                label: 'Researchers',
+            // Process individual respondents for second compass
+            const individuals = processIndividualRespondents(
+                'I'd rather build a working prototype than write a perfect paper.',
+                'I believe creativity is more important than rigor in research.',
+                [
+                    {col: 'Who would you most want to have dinner with?'},
+                    {col: 'I would most want to work at:'},
+                    {col: 'What is your favorite ML related podcast?'}
+                ]
+            );
+
+            // Create individual points dataset
+            const individualDataset = {
+                label: 'Individual Respondents',
+                data: individuals.map(ind => ({
+                    x: ind.x,
+                    y: ind.y,  // No inversion for second chart
+                    categories: ind.categories,
+                    respondentId: ind.respondentId
+                })),
+                backgroundColor: 'rgba(150, 150, 150, 0.15)',
+                borderColor: 'rgba(150, 150, 150, 0.3)',
+                borderWidth: 0.5,
+                pointRadius: 2,
+                pointHoverRadius: 3,
+                pointHoverBackgroundColor: 'rgba(100, 100, 255, 0.6)',
+                pointHoverBorderColor: 'rgba(100, 100, 255, 1)',
+                pointHoverBorderWidth: 1.5,
+                datalabels: {
+                    display: false
+                }
+            };
+
+            // Create category averages dataset
+            const categoryDataset = {
+                label: 'Category Averages',
                 data: allData.map(d => ({
                     x: d.x,
                     y: d.y,  // Use regular Y, not inverted
                     label: d.label,
                     count: d.count,
                     xVal: d.x,
-                    yVal: d.y
+                    yVal: d.y,
+                    categoryLabel: d.label
                 })),
                 backgroundColor: allData.map(d => getColorForPoint(d.x, d.y)),
                 borderColor: allData.map(d => getBorderColorForPoint(d.x, d.y)),
@@ -684,9 +835,9 @@
                 pointHoverBorderWidth: 2.5,
             };
 
-            new Chart(ctx, {
+            chart2Instance = new Chart(ctx, {
                 type: 'scatter',
-                data: { datasets: [dataset] },
+                data: { datasets: [individualDataset, categoryDataset] },
                 options: {
                     responsive: true,
                     maintainAspectRatio: true,
@@ -732,6 +883,37 @@
                             borderWidth: 1,
                             borderRadius: 3,
                             padding: 4
+                        }
+                    },
+                    onHover: function(event, activeElements) {
+                        if (activeElements.length > 0) {
+                            const element = activeElements[0];
+                            const datasetIndex = element.datasetIndex;
+                            const dataIndex = element.index;
+
+                            // Only trigger on category dataset (index 1)
+                            if (datasetIndex === 1) {
+                                const categoryLabel = categoryDataset.data[dataIndex].categoryLabel;
+
+                                // Update individual points colors based on matching categories
+                                const colors = individuals.map(ind => {
+                                    const matches = Object.values(ind.categories).includes(categoryLabel);
+                                    return matches ? 'rgba(100, 100, 255, 0.7)' : 'rgba(150, 150, 150, 0.15)';
+                                });
+                                const borderColors = individuals.map(ind => {
+                                    const matches = Object.values(ind.categories).includes(categoryLabel);
+                                    return matches ? 'rgba(100, 100, 255, 1)' : 'rgba(150, 150, 150, 0.3)';
+                                });
+
+                                chart2Instance.data.datasets[0].backgroundColor = colors;
+                                chart2Instance.data.datasets[0].borderColor = borderColors;
+                                chart2Instance.update('none');
+                            }
+                        } else {
+                            // Reset to default when not hovering
+                            chart2Instance.data.datasets[0].backgroundColor = 'rgba(150, 150, 150, 0.15)';
+                            chart2Instance.data.datasets[0].borderColor = 'rgba(150, 150, 150, 0.3)';
+                            chart2Instance.update('none');
                         }
                     },
                     scales: {
