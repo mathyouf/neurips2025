@@ -177,10 +177,10 @@
                     beliefs (X-axis: "I believe AGI is likely within the next 10 years", 1-5 Likert scale) and AI safety
                     priorities (Y-axis: "We should slow down AI progress until safety is better understood", inverted 1-5 scale).
                     Each large point represents the average position of researchers sharing a categorical preference.
-                    Small gray dots represent individual respondents (with jitter to prevent overlap). Color indicates
-                    safety priority through a blue-white-red gradient (blue = move fast, red = prioritize safety).
-                    Opacity encodes AGI timeline belief strength (faint = skeptical, solid = believer). Hover over a
-                    category to highlight its respondents.
+                    Small colored dots represent individual respondents (with jitter to prevent overlap), colored based on
+                    their position. Color indicates safety priority through a blue-white-red gradient (blue = move fast,
+                    red = prioritize safety). Opacity encodes AGI timeline belief strength (faint = skeptical, solid = believer).
+                    Hover over a category to highlight its respondents with connecting lines.
                 </div>
             </section>
 
@@ -227,9 +227,10 @@
                     prototypes vs. papers (X-axis: "I'd rather build a working prototype than write a perfect paper", 1-5 scale)
                     and belief in creativity vs. rigor (Y-axis: "I believe creativity is more important than rigor in research", 1-5 scale).
                     Each large point represents the average position of researchers sharing a categorical preference.
-                    Small gray dots represent individual respondents (with jitter to prevent overlap). Color encodes Y-axis
-                    position (blue = rigor-focused, red = creativity-focused). Opacity encodes X-axis belief strength
-                    (faint = prefer papers, solid = prefer prototypes). Hover over a category to highlight its respondents.
+                    Small colored dots represent individual respondents (with jitter to prevent overlap), colored based on
+                    their position. Color encodes Y-axis position (blue = rigor-focused, red = creativity-focused). Opacity
+                    encodes X-axis belief strength (faint = prefer papers, solid = prefer prototypes). Hover over a category
+                    to highlight its respondents with connecting lines.
                 </div>
             </section>
         </div>
@@ -258,6 +259,8 @@
         let hoveredCategory2 = null;
         let chart1Instance = null;
         let chart2Instance = null;
+        let hoveredCategoryPoint1 = null;  // Stores {x, y, matches: [indices]}
+        let hoveredCategoryPoint2 = null;  // Stores {x, y, matches: [indices]}
 
         Papa.parse('neuripstwin7.csv', {
             download: true,
@@ -324,6 +327,43 @@
                 document.getElementById('loading').innerHTML = 'Error loading data. Please check the console.';
             }
         });
+
+        // Plugin to draw connecting lines from category points to individual respondents
+        const connectionLinesPlugin = {
+            id: 'connectionLines',
+            beforeDatasetsDraw(chart, args, options) {
+                const { ctx, chartArea, scales } = chart;
+                const hoveredPoint = chart.canvas.id === 'compassChart1' ? hoveredCategoryPoint1 : hoveredCategoryPoint2;
+
+                if (!hoveredPoint || !hoveredPoint.matches || hoveredPoint.matches.length === 0) {
+                    return;
+                }
+
+                const individualDataset = chart.data.datasets[0];  // Individual respondents dataset
+
+                ctx.save();
+                ctx.strokeStyle = 'rgba(100, 100, 255, 0.2)';
+                ctx.lineWidth = 1;
+
+                // Draw lines from category point to each matching individual
+                hoveredPoint.matches.forEach(index => {
+                    const individual = individualDataset.data[index];
+                    if (!individual) return;
+
+                    const categoryX = scales.x.getPixelForValue(hoveredPoint.x);
+                    const categoryY = scales.y.getPixelForValue(hoveredPoint.y);
+                    const indX = scales.x.getPixelForValue(individual.x);
+                    const indY = scales.y.getPixelForValue(individual.y);
+
+                    ctx.beginPath();
+                    ctx.moveTo(categoryX, categoryY);
+                    ctx.lineTo(indX, indY);
+                    ctx.stroke();
+                });
+
+                ctx.restore();
+            }
+        };
 
         function addJitter(value, amount = 0.08) {
             return value + (Math.random() - 0.5) * amount;
@@ -599,15 +639,24 @@
                     x: ind.x,
                     y: 6 - ind.y,  // Invert Y for display
                     categories: ind.categories,
-                    respondentId: ind.respondentId
+                    respondentId: ind.respondentId,
+                    originalX: ind.originalX,
+                    originalY: ind.originalY
                 })),
-                backgroundColor: 'rgba(150, 150, 150, 0.15)',
-                borderColor: 'rgba(150, 150, 150, 0.3)',
+                backgroundColor: individuals.map(ind => {
+                    // Color based on coordinates with reduced opacity
+                    const color = getColorForPoint(ind.originalX, ind.originalY);
+                    return color.replace(/[\d.]+\)$/, '0.2)');  // Set opacity to 0.2
+                }),
+                borderColor: individuals.map(ind => {
+                    const color = getBorderColorForPoint(ind.originalX, ind.originalY);
+                    return color.replace('rgb', 'rgba').replace(')', ', 0.4)');
+                }),
                 borderWidth: 0.5,
                 pointRadius: 2,
                 pointHoverRadius: 3,
-                pointHoverBackgroundColor: 'rgba(100, 100, 255, 0.6)',
-                pointHoverBorderColor: 'rgba(100, 100, 255, 1)',
+                pointHoverBackgroundColor: individuals.map(ind => getColorForPoint(ind.originalX, ind.originalY)),
+                pointHoverBorderColor: individuals.map(ind => getBorderColorForPoint(ind.originalX, ind.originalY)),
                 pointHoverBorderWidth: 1.5,
                 datalabels: {
                     display: false  // No labels for individual points
@@ -695,16 +744,29 @@
                             // Only trigger on category dataset (index 1)
                             if (datasetIndex === 1) {
                                 const categoryLabel = categoryDataset.data[dataIndex].categoryLabel;
+                                const categoryPoint = categoryDataset.data[dataIndex];
 
-                                // Update individual points colors based on matching categories
-                                const colors = individuals.map(ind => {
+                                // Find matching individuals and their indices
+                                const matchingIndices = [];
+                                const colors = individuals.map((ind, idx) => {
                                     const matches = Object.values(ind.categories).includes(categoryLabel);
-                                    return matches ? 'rgba(100, 100, 255, 0.7)' : 'rgba(150, 150, 150, 0.15)';
+                                    if (matches) matchingIndices.push(idx);
+                                    // Keep original color but adjust opacity
+                                    const baseColor = getColorForPoint(ind.originalX, ind.originalY);
+                                    return matches ? baseColor : baseColor.replace(/[\d.]+\)$/, '0.05)');
                                 });
                                 const borderColors = individuals.map(ind => {
                                     const matches = Object.values(ind.categories).includes(categoryLabel);
-                                    return matches ? 'rgba(100, 100, 255, 1)' : 'rgba(150, 150, 150, 0.3)';
+                                    const baseBorder = getBorderColorForPoint(ind.originalX, ind.originalY);
+                                    return matches ? baseBorder : baseBorder.replace('rgb', 'rgba').replace(')', ', 0.1)');
                                 });
+
+                                // Store hovered category point for line drawing
+                                hoveredCategoryPoint1 = {
+                                    x: categoryPoint.x,
+                                    y: categoryPoint.y,
+                                    matches: matchingIndices
+                                };
 
                                 chart1Instance.data.datasets[0].backgroundColor = colors;
                                 chart1Instance.data.datasets[0].borderColor = borderColors;
@@ -712,8 +774,15 @@
                             }
                         } else {
                             // Reset to default when not hovering
-                            chart1Instance.data.datasets[0].backgroundColor = 'rgba(150, 150, 150, 0.15)';
-                            chart1Instance.data.datasets[0].borderColor = 'rgba(150, 150, 150, 0.3)';
+                            hoveredCategoryPoint1 = null;
+                            chart1Instance.data.datasets[0].backgroundColor = individuals.map(ind => {
+                                const color = getColorForPoint(ind.originalX, ind.originalY);
+                                return color.replace(/[\d.]+\)$/, '0.2)');
+                            });
+                            chart1Instance.data.datasets[0].borderColor = individuals.map(ind => {
+                                const color = getBorderColorForPoint(ind.originalX, ind.originalY);
+                                return color.replace('rgb', 'rgba').replace(')', ', 0.4)');
+                            });
                             chart1Instance.update('none');
                         }
                     },
@@ -761,7 +830,7 @@
                         }
                     }
                 },
-                plugins: [ChartDataLabels]
+                plugins: [ChartDataLabels, connectionLinesPlugin]
             });
         }
 
@@ -798,15 +867,24 @@
                     x: ind.x,
                     y: ind.y,  // No inversion for second chart
                     categories: ind.categories,
-                    respondentId: ind.respondentId
+                    respondentId: ind.respondentId,
+                    originalX: ind.originalX,
+                    originalY: ind.originalY
                 })),
-                backgroundColor: 'rgba(150, 150, 150, 0.15)',
-                borderColor: 'rgba(150, 150, 150, 0.3)',
+                backgroundColor: individuals.map(ind => {
+                    // Color based on coordinates with reduced opacity
+                    const color = getColorForPoint(ind.originalX, ind.originalY);
+                    return color.replace(/[\d.]+\)$/, '0.2)');  // Set opacity to 0.2
+                }),
+                borderColor: individuals.map(ind => {
+                    const color = getBorderColorForPoint(ind.originalX, ind.originalY);
+                    return color.replace('rgb', 'rgba').replace(')', ', 0.4)');
+                }),
                 borderWidth: 0.5,
                 pointRadius: 2,
                 pointHoverRadius: 3,
-                pointHoverBackgroundColor: 'rgba(100, 100, 255, 0.6)',
-                pointHoverBorderColor: 'rgba(100, 100, 255, 1)',
+                pointHoverBackgroundColor: individuals.map(ind => getColorForPoint(ind.originalX, ind.originalY)),
+                pointHoverBorderColor: individuals.map(ind => getBorderColorForPoint(ind.originalX, ind.originalY)),
                 pointHoverBorderWidth: 1.5,
                 datalabels: {
                     display: false
@@ -894,16 +972,29 @@
                             // Only trigger on category dataset (index 1)
                             if (datasetIndex === 1) {
                                 const categoryLabel = categoryDataset.data[dataIndex].categoryLabel;
+                                const categoryPoint = categoryDataset.data[dataIndex];
 
-                                // Update individual points colors based on matching categories
-                                const colors = individuals.map(ind => {
+                                // Find matching individuals and their indices
+                                const matchingIndices = [];
+                                const colors = individuals.map((ind, idx) => {
                                     const matches = Object.values(ind.categories).includes(categoryLabel);
-                                    return matches ? 'rgba(100, 100, 255, 0.7)' : 'rgba(150, 150, 150, 0.15)';
+                                    if (matches) matchingIndices.push(idx);
+                                    // Keep original color but adjust opacity
+                                    const baseColor = getColorForPoint(ind.originalX, ind.originalY);
+                                    return matches ? baseColor : baseColor.replace(/[\d.]+\)$/, '0.05)');
                                 });
                                 const borderColors = individuals.map(ind => {
                                     const matches = Object.values(ind.categories).includes(categoryLabel);
-                                    return matches ? 'rgba(100, 100, 255, 1)' : 'rgba(150, 150, 150, 0.3)';
+                                    const baseBorder = getBorderColorForPoint(ind.originalX, ind.originalY);
+                                    return matches ? baseBorder : baseBorder.replace('rgb', 'rgba').replace(')', ', 0.1)');
                                 });
+
+                                // Store hovered category point for line drawing
+                                hoveredCategoryPoint2 = {
+                                    x: categoryPoint.x,
+                                    y: categoryPoint.y,
+                                    matches: matchingIndices
+                                };
 
                                 chart2Instance.data.datasets[0].backgroundColor = colors;
                                 chart2Instance.data.datasets[0].borderColor = borderColors;
@@ -911,8 +1002,15 @@
                             }
                         } else {
                             // Reset to default when not hovering
-                            chart2Instance.data.datasets[0].backgroundColor = 'rgba(150, 150, 150, 0.15)';
-                            chart2Instance.data.datasets[0].borderColor = 'rgba(150, 150, 150, 0.3)';
+                            hoveredCategoryPoint2 = null;
+                            chart2Instance.data.datasets[0].backgroundColor = individuals.map(ind => {
+                                const color = getColorForPoint(ind.originalX, ind.originalY);
+                                return color.replace(/[\d.]+\)$/, '0.2)');
+                            });
+                            chart2Instance.data.datasets[0].borderColor = individuals.map(ind => {
+                                const color = getBorderColorForPoint(ind.originalX, ind.originalY);
+                                return color.replace('rgb', 'rgba').replace(')', ', 0.4)');
+                            });
                             chart2Instance.update('none');
                         }
                     },
@@ -957,7 +1055,7 @@
                         }
                     }
                 },
-                plugins: [ChartDataLabels]
+                plugins: [ChartDataLabels, connectionLinesPlugin]
             });
         }
 
