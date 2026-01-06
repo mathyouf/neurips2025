@@ -269,6 +269,8 @@
         let hoveredCategoryPoint2 = null;  // Stores {x, y, matches: [indices]}
         let hoveredIndividual1 = null;  // Stores {x, y, categoryIndices: [indices]}
         let hoveredIndividual2 = null;  // Stores {x, y, categoryIndices: [indices]}
+        let hoveredCategoryLabelsToShow1 = new Set();  // Category indices to show labels for
+        let hoveredCategoryLabelsToShow2 = new Set();  // Category indices to show labels for
 
         Papa.parse('neuripstwin7.csv', {
             download: true,
@@ -738,6 +740,10 @@
                         },
                         datalabels: {
                             display: function(context) {
+                                // Show if: hovered, in default visible set, or in hover-forced set
+                                if (hoveredCategoryLabelsToShow1.size > 0) {
+                                    return hoveredCategoryLabelsToShow1.has(context.dataIndex);
+                                }
                                 return context.hovered || visibleLabelIndices1.has(context.dataIndex);
                             },
                             align: function(context) {
@@ -814,12 +820,8 @@
                                 chart1Instance.data.datasets[1].borderWidth = categoryBorderWidths;
 
                                 // Force labels to show ONLY for matching categories
-                                chart1Instance.data.datasets[1].datalabels = {
-                                    ...chart1Instance.data.datasets[1].datalabels,
-                                    display: function(context) {
-                                        return categoryIndices.includes(context.dataIndex);
-                                    }
-                                };
+                                hoveredCategoryLabelsToShow1.clear();
+                                categoryIndices.forEach(idx => hoveredCategoryLabelsToShow1.add(idx));
 
                                 chart1Instance.update('none');
                             }
@@ -860,13 +862,10 @@
                                 chart1Instance.data.datasets[0].backgroundColor = colors;
                                 chart1Instance.data.datasets[0].borderColor = borderColors;
 
-                                // Force the hovered category label to show
-                                chart1Instance.data.datasets[1].datalabels = {
-                                    ...chart1Instance.data.datasets[1].datalabels,
-                                    display: function(context) {
-                                        return context.dataIndex === hoveredCategoryIndex || visibleLabelIndices1.has(context.dataIndex);
-                                    }
-                                };
+                                // Force the hovered category label to show (along with default visible)
+                                hoveredCategoryLabelsToShow1.clear();
+                                hoveredCategoryLabelsToShow1.add(hoveredCategoryIndex);
+                                visibleLabelIndices1.forEach(idx => hoveredCategoryLabelsToShow1.add(idx));
 
                                 chart1Instance.update('none');
                             }
@@ -875,6 +874,7 @@
                             hoveredCategory1 = null;
                             hoveredCategoryPoint1 = null;
                             hoveredIndividual1 = null;
+                            hoveredCategoryLabelsToShow1.clear();  // Clear label overrides
 
                             chart1Instance.data.datasets[0].backgroundColor = individuals.map(ind => {
                                 const color = getColorForPoint(ind.originalX, ind.originalY);
@@ -904,9 +904,13 @@
                             max: 5.15,
                             ticks: {
                                 stepSize: 1,
+                                autoSkip: false,
                                 callback: function(value) {
                                     // Only show integer ticks from 1-5
-                                    return (value >= 1 && value <= 5 && Number.isInteger(value)) ? value : '';
+                                    if (Number.isInteger(value) && value >= 1 && value <= 5) {
+                                        return value;
+                                    }
+                                    return null;  // Hide non-integer or out-of-range ticks
                                 }
                             },
                             grid: {
@@ -1051,6 +1055,10 @@
                         },
                         datalabels: {
                             display: function(context) {
+                                // Show if: hovered, in default visible set, or in hover-forced set
+                                if (hoveredCategoryLabelsToShow2.size > 0) {
+                                    return hoveredCategoryLabelsToShow2.has(context.dataIndex);
+                                }
                                 return context.hovered || visibleLabelIndices2.has(context.dataIndex);
                             },
                             align: function(context) {
@@ -1127,12 +1135,8 @@
                                 chart2Instance.data.datasets[1].borderWidth = categoryBorderWidths;
 
                                 // Force labels to show ONLY for matching categories
-                                chart2Instance.data.datasets[1].datalabels = {
-                                    ...chart2Instance.data.datasets[1].datalabels,
-                                    display: function(context) {
-                                        return categoryIndices.includes(context.dataIndex);
-                                    }
-                                };
+                                hoveredCategoryLabelsToShow2.clear();
+                                categoryIndices.forEach(idx => hoveredCategoryLabelsToShow2.add(idx));
 
                                 chart2Instance.update('none');
                             }
@@ -1173,13 +1177,10 @@
                                 chart2Instance.data.datasets[0].backgroundColor = colors;
                                 chart2Instance.data.datasets[0].borderColor = borderColors;
 
-                                // Force the hovered category label to show
-                                chart2Instance.data.datasets[1].datalabels = {
-                                    ...chart2Instance.data.datasets[1].datalabels,
-                                    display: function(context) {
-                                        return context.dataIndex === hoveredCategoryIndex || visibleLabelIndices2.has(context.dataIndex);
-                                    }
-                                };
+                                // Force the hovered category label to show (along with default visible)
+                                hoveredCategoryLabelsToShow2.clear();
+                                hoveredCategoryLabelsToShow2.add(hoveredCategoryIndex);
+                                visibleLabelIndices2.forEach(idx => hoveredCategoryLabelsToShow2.add(idx));
 
                                 chart2Instance.update('none');
                             }
@@ -1188,6 +1189,7 @@
                             hoveredCategory2 = null;
                             hoveredCategoryPoint2 = null;
                             hoveredIndividual2 = null;
+                            hoveredCategoryLabelsToShow2.clear();  // Clear label overrides
 
                             chart2Instance.data.datasets[0].backgroundColor = individuals.map(ind => {
                                 const color = getColorForPoint(ind.originalX, ind.originalY);
@@ -1217,9 +1219,13 @@
                             max: 5.15,
                             ticks: {
                                 stepSize: 1,
+                                autoSkip: false,
                                 callback: function(value) {
                                     // Only show integer ticks from 1-5
-                                    return (value >= 1 && value <= 5 && Number.isInteger(value)) ? value : '';
+                                    if (Number.isInteger(value) && value >= 1 && value <= 5) {
+                                        return value;
+                                    }
+                                    return null;  // Hide non-integer or out-of-range ticks
                                 }
                             },
                             grid: {
