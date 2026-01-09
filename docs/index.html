@@ -167,6 +167,32 @@
         <div id="loading" class="loading">Loading survey data...</div>
 
         <div id="content" style="display: none;">
+            <section class="section" style="background: #f8f9fa; padding: 20px; border-radius: 8px; margin-bottom: 30px;">
+                <h2 style="margin-top: 0;">Find Yourself</h2>
+                <div style="display: flex; flex-direction: column; gap: 15px; max-width: 600px;">
+                    <div>
+                        <label for="uuidInput" style="display: block; margin-bottom: 5px; font-weight: 600;">Enter your UUID:</label>
+                        <input type="text" id="uuidInput" placeholder="Enter your UUID to highlight yourself"
+                               style="width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px;">
+                    </div>
+                    <div>
+                        <label for="knnSlider" style="display: block; margin-bottom: 5px; font-weight: 600;">
+                            Number of nearest neighbors: <span id="knnValue">5</span>
+                        </label>
+                        <input type="range" id="knnSlider" min="0" max="20" value="5"
+                               style="width: 100%;">
+                        <div style="display: flex; justify-content: space-between; font-size: 12px; color: #666;">
+                            <span>0</span>
+                            <span>20</span>
+                        </div>
+                    </div>
+                    <div id="userInfo" style="display: none; background: white; padding: 10px; border-radius: 4px; border: 1px solid #ddd;">
+                        <strong>Your position:</strong>
+                        <div id="userDetails"></div>
+                    </div>
+                </div>
+            </section>
+
             <section class="section compass-section">
                 <h2>1. Political Compass: AGI Beliefs vs. Safety Priorities</h2>
                 <div class="chart-container">
@@ -271,6 +297,10 @@
         let hoveredIndividual2 = null;  // Stores {x, y, categoryIndices: [indices]}
         let hoveredCategoryLabelsToShow1 = new Set();  // Category indices to show labels for
         let hoveredCategoryLabelsToShow2 = new Set();  // Category indices to show labels for
+        let groupsData = null;  // Groups data with UUID, email, X, Y
+        let highlightedIndices = new Set();  // Indices of user + KNN to highlight
+        let currentUserUUID = null;
+        let currentK = 5;
 
         Papa.parse('neuripstwin7.csv', {
             download: true,
@@ -331,6 +361,9 @@
                 createCompassChart1();
                 createCompassChart2();
                 createPieCharts();
+
+                // Load groups data for UUID highlighting
+                loadGroupsData();
             },
             error: function(error) {
                 console.error('Error loading data:', error);
@@ -394,6 +427,132 @@
                 ctx.restore();
             }
         };
+
+        // Load and process groups data
+        function loadGroupsData() {
+            Papa.parse('groups_with_uuid.csv', {
+                download: true,
+                header: true,
+                complete: function(results) {
+                    groupsData = results.data;
+                    console.log('Loaded groups data:', groupsData.length, 'entries');
+                    setupUIEventListeners();
+                },
+                error: function(error) {
+                    console.error('Error loading groups data:', error);
+                }
+            });
+        }
+
+        // Set up event listeners for UUID input and k-slider
+        function setupUIEventListeners() {
+            const uuidInput = document.getElementById('uuidInput');
+            const knnSlider = document.getElementById('knnSlider');
+            const knnValue = document.getElementById('knnValue');
+
+            // Handle UUID input
+            uuidInput.addEventListener('input', function() {
+                const uuid = this.value.trim();
+                if (uuid) {
+                    currentUserUUID = uuid;
+                    updateHighlighting();
+                } else {
+                    currentUserUUID = null;
+                    clearHighlighting();
+                }
+            });
+
+            // Handle k-slider
+            knnSlider.addEventListener('input', function() {
+                currentK = parseInt(this.value);
+                knnValue.textContent = currentK;
+                if (currentUserUUID) {
+                    updateHighlighting();
+                }
+            });
+        }
+
+        // Calculate euclidean distance
+        function euclideanDistance(x1, y1, x2, y2) {
+            return Math.sqrt(Math.pow(x1 - x2, 2) + Math.pow(y1 - y2, 2));
+        }
+
+        // Find k nearest neighbors based on cluster X,Y coordinates
+        function findKNN(userGroupData, k) {
+            if (!userGroupData || !groupsData) return [];
+
+            const userX = parseFloat(userGroupData.X);
+            const userY = parseFloat(userGroupData.Y);
+
+            // Calculate distances to all other points
+            const distances = groupsData.map((group, idx) => ({
+                index: idx,
+                email: group.Email,
+                distance: euclideanDistance(userX, userY, parseFloat(group.X), parseFloat(group.Y))
+            }));
+
+            // Sort by distance and take k nearest (excluding self at distance 0)
+            distances.sort((a, b) => a.distance - b.distance);
+            return distances.slice(1, k + 1);  // Skip first (self) and take next k
+        }
+
+        // Update highlighting based on current UUID and k
+        function updateHighlighting() {
+            if (!currentUserUUID || !groupsData || !surveyData) return;
+
+            // Find user's group data
+            const userGroups = groupsData.filter(g => g.UUID === currentUserUUID);
+            if (userGroups.length === 0) {
+                document.getElementById('userInfo').style.display = 'none';
+                console.log('UUID not found');
+                return;
+            }
+
+            // Use first matching entry
+            const userGroupData = userGroups[0];
+
+            // Find KNN
+            const knn = findKNN(userGroupData, currentK);
+
+            // Find all emails to highlight (user + neighbors)
+            const emailsToHighlight = new Set([userGroupData.Email]);
+            knn.forEach(n => emailsToHighlight.add(n.email));
+
+            // Map emails to survey data indices
+            highlightedIndices.clear();
+            surveyData.forEach((row, idx) => {
+                if (emailsToHighlight.has(row['Email Address'])) {
+                    highlightedIndices.add(idx);
+                }
+            });
+
+            // Update user info display
+            document.getElementById('userInfo').style.display = 'block';
+            document.getElementById('userDetails').innerHTML = `
+                <div>Cluster position: (${userGroupData.X}, ${userGroupData.Y})</div>
+                <div>Cluster ID: ${userGroupData.Cluster_ID}</div>
+                <div>Group ID: ${userGroupData.Optimized_Group_ID}</div>
+                <div style="margin-top: 5px;">Showing you + ${highlightedIndices.size - 1} neighbors</div>
+            `;
+
+            // Update charts
+            updateChartHighlighting();
+        }
+
+        // Clear highlighting
+        function clearHighlighting() {
+            highlightedIndices.clear();
+            document.getElementById('userInfo').style.display = 'none';
+            updateChartHighlighting();
+        }
+
+        // Update chart colors based on highlighted indices
+        function updateChartHighlighting() {
+            if (chart1Instance && chart2Instance) {
+                chart1Instance.update('none');
+                chart2Instance.update('none');
+            }
+        }
 
         function addJitter(value, amount = 0.08) {
             return value + (Math.random() - 0.5) * amount;
@@ -673,17 +832,29 @@
                     originalX: ind.originalX,
                     originalY: ind.originalY
                 })),
-                backgroundColor: individuals.map(ind => {
+                backgroundColor: individuals.map((ind, idx) => {
                     // Color based on coordinates with reduced opacity
                     const color = getColorForPoint(ind.originalX, ind.originalY);
-                    return color.replace(/[\d.]+\)$/, '0.2)');  // Set opacity to 0.2
+                    // Highlight if in highlighted set (user + KNN)
+                    if (highlightedIndices.has(ind.respondentId)) {
+                        return color.replace(/[\d.]+\)$/, '1.0)');  // Full opacity for highlighted
+                    }
+                    return color.replace(/[\d.]+\)$/, '0.2)');  // Normal opacity
                 }),
-                borderColor: individuals.map(ind => {
+                borderColor: individuals.map((ind, idx) => {
                     const color = getBorderColorForPoint(ind.originalX, ind.originalY);
+                    // Bright border if highlighted
+                    if (highlightedIndices.has(ind.respondentId)) {
+                        return 'rgba(255, 215, 0, 1)';  // Gold border
+                    }
                     return color.replace('rgb', 'rgba').replace(')', ', 0.4)');
                 }),
-                borderWidth: 0.5,
-                pointRadius: 2,
+                borderWidth: individuals.map((ind, idx) => {
+                    return highlightedIndices.has(ind.respondentId) ? 2 : 0.5;
+                }),
+                pointRadius: individuals.map((ind, idx) => {
+                    return highlightedIndices.has(ind.respondentId) ? 4 : 2;
+                }),
                 pointHoverRadius: 3,  // Slightly larger on hover
                 pointStyle: 'circle',
                 hitRadius: 3,  // Small hit area for individual points
@@ -988,17 +1159,29 @@
                     originalX: ind.originalX,
                     originalY: ind.originalY
                 })),
-                backgroundColor: individuals.map(ind => {
+                backgroundColor: individuals.map((ind, idx) => {
                     // Color based on coordinates with reduced opacity
                     const color = getColorForPoint(ind.originalX, ind.originalY);
-                    return color.replace(/[\d.]+\)$/, '0.2)');  // Set opacity to 0.2
+                    // Highlight if in highlighted set (user + KNN)
+                    if (highlightedIndices.has(ind.respondentId)) {
+                        return color.replace(/[\d.]+\)$/, '1.0)');  // Full opacity for highlighted
+                    }
+                    return color.replace(/[\d.]+\)$/, '0.2)');  // Normal opacity
                 }),
-                borderColor: individuals.map(ind => {
+                borderColor: individuals.map((ind, idx) => {
                     const color = getBorderColorForPoint(ind.originalX, ind.originalY);
+                    // Bright border if highlighted
+                    if (highlightedIndices.has(ind.respondentId)) {
+                        return 'rgba(255, 215, 0, 1)';  // Gold border
+                    }
                     return color.replace('rgb', 'rgba').replace(')', ', 0.4)');
                 }),
-                borderWidth: 0.5,
-                pointRadius: 2,
+                borderWidth: individuals.map((ind, idx) => {
+                    return highlightedIndices.has(ind.respondentId) ? 2 : 0.5;
+                }),
+                pointRadius: individuals.map((ind, idx) => {
+                    return highlightedIndices.has(ind.respondentId) ? 4 : 2;
+                }),
                 pointHoverRadius: 3,  // Slightly larger on hover
                 pointStyle: 'circle',
                 hitRadius: 3,  // Small hit area for individual points
