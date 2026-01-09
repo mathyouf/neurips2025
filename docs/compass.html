@@ -1,0 +1,856 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Researcher Political Compass - NeurIPS Survey 2025</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2"></script>
+    <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: #333;
+            padding: 20px;
+            min-height: 100vh;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            overflow: hidden;
+        }
+
+        header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 40px;
+            text-align: center;
+        }
+
+        h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+            font-weight: 700;
+        }
+
+        .subtitle {
+            font-size: 1.2em;
+            opacity: 0.9;
+        }
+
+        .nav-links {
+            margin-top: 20px;
+        }
+
+        .nav-links a {
+            color: white;
+            text-decoration: none;
+            margin: 0 15px;
+            padding: 8px 16px;
+            background: rgba(255, 255, 255, 0.2);
+            border-radius: 5px;
+            transition: background 0.3s;
+        }
+
+        .nav-links a:hover {
+            background: rgba(255, 255, 255, 0.3);
+        }
+
+        .info-section {
+            padding: 30px 40px;
+            background: #f8f9fa;
+            border-bottom: 2px solid #e0e0e0;
+        }
+
+        .info-section h2 {
+            color: #667eea;
+            margin-bottom: 15px;
+        }
+
+        .info-section p {
+            line-height: 1.8;
+            color: #555;
+            margin-bottom: 10px;
+        }
+
+        .legend-box {
+            display: flex;
+            gap: 30px;
+            margin-top: 15px;
+            flex-wrap: wrap;
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .color-gradient {
+            width: 200px;
+            height: 20px;
+            border-radius: 4px;
+            border: 1px solid #ccc;
+        }
+
+        .gradient-y {
+            background: linear-gradient(to right, #3b82f6 0%, #ffffff 50%, #dc1414 100%);
+        }
+
+        .gradient-x {
+            background: linear-gradient(to right, rgba(102, 126, 234, 0.3) 0%, rgba(102, 126, 234, 1) 100%);
+        }
+
+        .controls {
+            padding: 30px 40px;
+            background: white;
+            border-bottom: 2px solid #e0e0e0;
+        }
+
+        .control-group {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            flex-wrap: wrap;
+        }
+
+        .control-group label {
+            font-weight: 600;
+            color: #333;
+        }
+
+        .control-group select {
+            padding: 10px 15px;
+            border: 2px solid #667eea;
+            border-radius: 8px;
+            font-size: 1em;
+            background: white;
+            cursor: pointer;
+            transition: border-color 0.3s;
+        }
+
+        .control-group select:hover {
+            border-color: #764ba2;
+        }
+
+        .chart-section {
+            padding: 40px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .chart-wrapper {
+            background: #f8f9fa;
+            padding: 30px;
+            border-radius: 15px;
+            width: 100%;
+            max-width: 900px;
+        }
+
+        .chart-container {
+            position: relative;
+            width: 100%;
+            aspect-ratio: 1 / 1;
+            max-width: 800px;
+            margin: 0 auto;
+        }
+
+        .quadrant-labels {
+            margin-top: 30px;
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 15px;
+        }
+
+        .quadrant-card {
+            padding: 15px;
+            border-radius: 10px;
+            border: 2px solid;
+            text-align: center;
+        }
+
+        .q1 {
+            border-color: #3b82f6;
+            background: rgba(59, 130, 246, 0.1);
+        }
+
+        .q2 {
+            border-color: #ef4444;
+            background: rgba(239, 68, 68, 0.1);
+        }
+
+        .q3 {
+            border-color: #60a5fa;
+            background: rgba(96, 165, 250, 0.1);
+        }
+
+        .q4 {
+            border-color: #f87171;
+            background: rgba(248, 113, 113, 0.1);
+        }
+
+        .quadrant-card h3 {
+            font-size: 1.1em;
+            margin-bottom: 5px;
+        }
+
+        .quadrant-card p {
+            font-size: 0.9em;
+            color: #666;
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+            padding: 30px 40px;
+            background: #f8f9fa;
+        }
+
+        .stat-card {
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+        }
+
+        .stat-card h3 {
+            color: #667eea;
+            font-size: 1em;
+            margin-bottom: 10px;
+        }
+
+        .stat-list {
+            font-size: 0.9em;
+            line-height: 1.8;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 100px;
+            font-size: 1.5em;
+            color: #667eea;
+        }
+
+        footer {
+            background: #333;
+            color: white;
+            text-align: center;
+            padding: 20px;
+            font-size: 0.9em;
+        }
+
+        footer a {
+            color: #667eea;
+            text-decoration: none;
+        }
+
+        footer a:hover {
+            text-decoration: underline;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🧭 AI Researcher Political Compass</h1>
+            <p class="subtitle">AGI Timeline Beliefs vs AI Safety Concerns</p>
+            <div class="nav-links">
+                <a href="index.html">← Back to Main Dashboard</a>
+            </div>
+        </header>
+
+        <div class="info-section">
+            <h2>📊 How to Read This Chart</h2>
+            <p>
+                This political compass maps AI researchers based on two key belief dimensions:
+                <strong>AGI Timeline</strong> (X-axis) and <strong>AI Safety Priority</strong> (Y-axis, inverted).
+                Each point represents the average position of researchers who chose that dinner companion, workplace, or podcast.
+            </p>
+            <p><strong>Color Encoding:</strong></p>
+            <div class="legend-box">
+                <div class="legend-item">
+                    <div class="color-gradient gradient-y"></div>
+                    <span><strong>Color:</strong> Blue = Move Fast, Red = Slow Down for Safety</span>
+                </div>
+                <div class="legend-item">
+                    <div class="color-gradient gradient-x"></div>
+                    <span><strong>Opacity:</strong> Faint = AGI Distant, Solid = AGI Soon</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="controls">
+            <div class="control-group">
+                <label for="categorySelect">View by Category:</label>
+                <select id="categorySelect">
+                    <option value="all" selected>All Combined</option>
+                    <option value="dinner">Dream Dinner Companion</option>
+                    <option value="workplace">Preferred Workplace</option>
+                    <option value="podcast">Favorite ML Podcast</option>
+                </select>
+            </div>
+            <div class="control-group" style="margin-top: 15px;">
+                <label for="thresholdSlider">Label Spacing:</label>
+                <input type="range" id="thresholdSlider" min="0.1" max="1.0" step="0.05" value="0.3" style="width: 200px; cursor: pointer;">
+                <span id="thresholdValue" style="margin-left: 10px; font-weight: 600; color: #667eea;">0.3</span>
+                <span style="margin-left: 10px; color: #666; font-size: 0.9em;">(Lower = More Labels)</span>
+            </div>
+        </div>
+
+        <div id="loading" class="loading">Loading survey data...</div>
+
+        <div id="content" style="display: none;">
+            <div class="chart-section">
+                <div class="chart-wrapper">
+                    <div class="chart-container">
+                        <canvas id="compassChart"></canvas>
+                    </div>
+                </div>
+            </div>
+
+            <div class="quadrant-labels">
+                <div class="quadrant-card q1">
+                    <h3>🛡️ Safety First, AGI Skeptics</h3>
+                    <p>Prioritize safety, don't expect AGI soon</p>
+                </div>
+                <div class="quadrant-card q2">
+                    <h3>⚠️ Safety First, AGI Believers</h3>
+                    <p>Expect AGI soon, want to slow down</p>
+                </div>
+                <div class="quadrant-card q3">
+                    <h3>🏃 Move Fast, AGI Skeptics</h3>
+                    <p>Don't prioritize slowing down, AGI distant</p>
+                </div>
+                <div class="quadrant-card q4">
+                    <h3>🚀 Move Fast, AGI Believers</h3>
+                    <p>Expect AGI soon, don't want to slow down</p>
+                </div>
+            </div>
+
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <h3>🍽️ Most AGI-Optimistic Dinner Companions</h3>
+                    <div id="topAgiDinner" class="stat-list"></div>
+                </div>
+                <div class="stat-card">
+                    <h3>💼 Most AGI-Optimistic Workplaces</h3>
+                    <div id="topAgiWorkplace" class="stat-list"></div>
+                </div>
+                <div class="stat-card">
+                    <h3>⚠️ Most Safety-Concerned Groups</h3>
+                    <div id="topSafety" class="stat-list"></div>
+                </div>
+                <div class="stat-card">
+                    <h3>🚀 Most "Move Fast" Groups</h3>
+                    <div id="topMoveFast" class="stat-list"></div>
+                </div>
+            </div>
+        </div>
+
+        <footer>
+            <p>NeurIPS Twin Survey 2025 - Political Compass Visualization |
+            <a href="https://github.com/mathyouf/neurips2025">View on GitHub</a></p>
+        </footer>
+    </div>
+
+    <script>
+        let chartInstance = null;
+        let surveyData = null;
+        let processedData = {
+            dinner: [],
+            workplace: [],
+            podcast: []
+        };
+        let currentCategory = 'all';
+        let collisionThreshold = 0.3; // Global threshold for label spacing
+        let visibleLabelIndices = new Set(); // Cache of which labels should be shown
+
+        // Load and parse CSV data
+        Papa.parse('neuripstwin7.csv', {
+            download: true,
+            header: true,
+            complete: function(results) {
+                surveyData = results.data.filter(row => row.Timestamp && row.Timestamp.trim() !== '');
+                console.log('Loaded', surveyData.length, 'responses');
+
+                // Process all categories
+                processedData.dinner = processCategory('Who would you most want to have dinner with?', 3);
+                processedData.workplace = processCategory('I would most want to work at:', 3);
+                processedData.podcast = processCategory('What is your favorite ML related podcast?', 5);
+
+                // Hide loading, show content
+                document.getElementById('loading').style.display = 'none';
+                document.getElementById('content').style.display = 'block';
+
+                // Create initial chart (all categories combined)
+                updateChart('all');
+                updateStats();
+            },
+            error: function(error) {
+                console.error('Error loading data:', error);
+                document.getElementById('loading').innerHTML = 'Error loading data. Please check the console.';
+            }
+        });
+
+        function processCategory(columnName, minCount) {
+            const agiCol = 'I believe AGI is likely within the next 10 years.';
+            const safetyCol = 'We should slow down AI progress until safety is better understood.';
+
+            const groups = {};
+
+            surveyData.forEach(row => {
+                const value = row[columnName];
+                if (!value || value.trim() === '') return;
+
+                if (!groups[value]) {
+                    groups[value] = {
+                        agiScores: [],
+                        safetyScores: []
+                    };
+                }
+
+                const agi = parseFloat(row[agiCol]);
+                const safety = parseFloat(row[safetyCol]);
+
+                if (!isNaN(agi)) groups[value].agiScores.push(agi);
+                if (!isNaN(safety)) groups[value].safetyScores.push(safety);
+            });
+
+            const result = [];
+            for (const [label, data] of Object.entries(groups)) {
+                if (data.agiScores.length >= minCount && data.safetyScores.length >= minCount) {
+                    const avgAgi = data.agiScores.reduce((a, b) => a + b, 0) / data.agiScores.length;
+                    const avgSafety = data.safetyScores.reduce((a, b) => a + b, 0) / data.safetyScores.length;
+
+                    result.push({
+                        label: label,
+                        agi: avgAgi,
+                        safety: avgSafety,
+                        invertedSafety: 6 - avgSafety,
+                        count: data.agiScores.length
+                    });
+                }
+            }
+
+            return result;
+        }
+
+        function getColorForPoint(agi, safety) {
+            // Safety (Y-axis): Blue → White → Red gradient
+            // Normalize safety from 1-5 to 0-1
+            const safetyNorm = (safety - 1) / 4;
+
+            let r, g, b;
+
+            if (safetyNorm < 0.5) {
+                // Blue to White (safety 1-3)
+                // Blue: RGB(59, 130, 246), White: RGB(255, 255, 255)
+                const t = safetyNorm * 2; // 0 to 1
+                r = Math.round(59 + (255 - 59) * t);
+                g = Math.round(130 + (255 - 130) * t);
+                b = Math.round(246 + (255 - 246) * t);
+            } else {
+                // White to Red (safety 3-5)
+                // White: RGB(255, 255, 255), Red: RGB(220, 20, 20) - more saturated
+                const t = (safetyNorm - 0.5) * 2; // 0 to 1
+                r = Math.round(255 + (220 - 255) * t);
+                g = Math.round(255 + (20 - 255) * t);
+                b = Math.round(255 + (20 - 255) * t);
+            }
+
+            // AGI (X-axis): Controls opacity with sharper distinction
+            // Normalize AGI from 1-5 to 0-1
+            const agiNorm = (agi - 1) / 4;
+            // Apply quadratic curve for sharper distinction
+            const alphaNorm = Math.pow(agiNorm, 2);
+            const alpha = 0.25 + (alphaNorm * 0.75);
+
+            return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+        }
+
+        function getBorderColorForPoint(agi, safety) {
+            const safetyNorm = (safety - 1) / 4;
+
+            let r, g, b;
+
+            if (safetyNorm < 0.5) {
+                // Blue to White
+                const t = safetyNorm * 2;
+                r = Math.round(59 + (255 - 59) * t);
+                g = Math.round(130 + (255 - 130) * t);
+                b = Math.round(246 + (255 - 246) * t);
+            } else {
+                // White to Red
+                const t = (safetyNorm - 0.5) * 2;
+                r = Math.round(255 + (220 - 255) * t);
+                g = Math.round(255 + (20 - 255) * t);
+                b = Math.round(255 + (20 - 255) * t);
+            }
+
+            return `rgb(${r}, ${g}, ${b})`;
+        }
+
+        function getHoverColorForPoint(agi, safety) {
+            // Same as getColorForPoint but with alpha = 1 for solid fill on hover
+            const safetyNorm = (safety - 1) / 4;
+
+            let r, g, b;
+
+            if (safetyNorm < 0.5) {
+                // Blue to White (safety 1-3)
+                const t = safetyNorm * 2;
+                r = Math.round(59 + (255 - 59) * t);
+                g = Math.round(130 + (255 - 130) * t);
+                b = Math.round(246 + (255 - 246) * t);
+            } else {
+                // White to Red (safety 3-5)
+                const t = (safetyNorm - 0.5) * 2;
+                r = Math.round(255 + (220 - 255) * t);
+                g = Math.round(255 + (20 - 255) * t);
+                b = Math.round(255 + (20 - 255) * t);
+            }
+
+            return `rgba(${r}, ${g}, ${b}, 1.0)`; // Full opacity on hover
+        }
+
+        function updateChart(category) {
+            const canvas = document.getElementById('compassChart');
+            const ctx = canvas.getContext('2d');
+
+            if (chartInstance) {
+                chartInstance.destroy();
+            }
+
+            let allData = [];
+
+            if (category === 'all') {
+                allData = [
+                    ...processedData.dinner,
+                    ...processedData.workplace,
+                    ...processedData.podcast
+                ];
+            } else {
+                allData = processedData[category];
+            }
+
+            // Use fixed bounds for Likert scale data (1-5)
+            // Data is averages of 1-5 responses, so bounds should be 1-5
+            const minAgi = 1;
+            const maxAgi = 5;
+            const minSafety = 1;
+            const maxSafety = 5;
+
+            // Pre-calculate which labels should be visible
+            calculateVisibleLabels(allData);
+
+            // Create dataset with color coding
+            const dataset = {
+                label: 'Researchers',
+                data: allData.map(d => ({
+                    x: d.agi,
+                    y: d.invertedSafety,
+                    label: d.label,
+                    count: d.count,
+                    agi: d.agi,
+                    safety: d.safety
+                })),
+                backgroundColor: allData.map(d => getColorForPoint(d.agi, d.safety)),
+                borderColor: allData.map(d => getBorderColorForPoint(d.agi, d.safety)),
+                borderWidth: 1.5,
+                pointRadius: allData.map(d => Math.max(4, Math.sqrt(d.count) * 1.2)),
+                pointHoverRadius: allData.map(d => Math.max(4, Math.sqrt(d.count) * 1.2)), // Same size on hover
+                pointHoverBackgroundColor: allData.map(d => getHoverColorForPoint(d.agi, d.safety)),
+                pointHoverBorderColor: allData.map(d => getBorderColorForPoint(d.agi, d.safety)),
+                pointHoverBorderWidth: 2.5,
+            };
+
+            chartInstance = new Chart(ctx, {
+                type: 'scatter',
+                data: { datasets: [dataset] },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: true,
+                    aspectRatio: 1,
+                    plugins: {
+                        legend: {
+                            display: false
+                        },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    const point = context.raw;
+                                    return [
+                                        `${point.label}`,
+                                        `AGI Timeline: ${point.agi.toFixed(2)}/5`,
+                                        `Safety Priority: ${point.safety.toFixed(2)}/5`,
+                                        `Responses: ${point.count}`
+                                    ];
+                                }
+                            }
+                        },
+                        datalabels: {
+                            display: function(context) {
+                                // Always show on hover, otherwise check if should be visible
+                                return context.hovered || shouldShowLabel(context.dataIndex, context.dataset.data);
+                            },
+                            align: function(context) {
+                                const point = context.dataset.data[context.dataIndex];
+                                // Position labels to avoid chart edges
+                                const midX = (minAgi + maxAgi) / 2;
+                                const midY = (minSafety + maxSafety) / 2;
+
+                                if (point.x > midX && point.y < midY) return 'right';
+                                if (point.x < midX && point.y < midY) return 'left';
+                                if (point.x > midX && point.y > midY) return 'right';
+                                return 'left';
+                            },
+                            offset: 6,
+                            color: '#111',
+                            font: {
+                                size: 10,
+                                weight: '600'
+                            },
+                            formatter: function(value, context) {
+                                const label = value.label;
+                                // Truncate long labels
+                                return label.length > 18 ? label.substring(0, 16) + '...' : label;
+                            },
+                            backgroundColor: 'rgba(255, 255, 255, 0.95)',
+                            borderColor: function(context) {
+                                return context.hovered ? '#667eea' : '#ddd';
+                            },
+                            borderWidth: 1,
+                            borderRadius: 4,
+                            padding: 5
+                        }
+                    },
+                    scales: {
+                        x: {
+                            title: {
+                                display: true,
+                                text: 'AGI Likely Within 10 Years →',
+                                font: { size: 14, weight: 'bold' }
+                            },
+                            min: minAgi,
+                            max: maxAgi,
+                            ticks: {
+                                stepSize: 1,
+                                callback: function(value) {
+                                    return value;
+                                }
+                            },
+                            grid: {
+                                color: function(context) {
+                                    return context.tick.value === 3 ? 'rgba(0, 0, 0, 0.3)' : 'rgba(0, 0, 0, 0.1)';
+                                },
+                                lineWidth: function(context) {
+                                    return context.tick.value === 3 ? 2 : 1;
+                                }
+                            }
+                        },
+                        y: {
+                            title: {
+                                display: true,
+                                text: '← Prioritize AI Safety (Inverted)',
+                                font: { size: 14, weight: 'bold' }
+                            },
+                            min: minSafety,
+                            max: maxSafety,
+                            ticks: {
+                                stepSize: 1,
+                                callback: function(value) {
+                                    // Show inverted values (1=5, 2=4, 3=3, 4=2, 5=1)
+                                    return 6 - value;
+                                }
+                            },
+                            grid: {
+                                color: function(context) {
+                                    return context.tick.value === 3 ? 'rgba(0, 0, 0, 0.3)' : 'rgba(0, 0, 0, 0.1)';
+                                },
+                                lineWidth: function(context) {
+                                    return context.tick.value === 3 ? 2 : 1;
+                                }
+                            }
+                        }
+                    }
+                },
+                plugins: [ChartDataLabels]
+            });
+        }
+
+        function calculateVisibleLabels(allData) {
+            // Clear previous cache
+            visibleLabelIndices.clear();
+
+            if (!allData || allData.length === 0) return;
+
+            const centerX = 3; // Middle of 1-5 scale
+            const centerY = 3; // Middle of 1-5 scale
+
+            // Separate points into quadrants
+            const quadrants = {
+                topLeft: [],     // Low AGI, High Safety (x<3, y<3)
+                topRight: [],    // High AGI, High Safety (x>=3, y<3)
+                bottomLeft: [],  // Low AGI, Low Safety (x<3, y>=3)
+                bottomRight: []  // High AGI, Low Safety (x>=3, y>=3)
+            };
+
+            allData.forEach((d, i) => {
+                const point = {
+                    index: i,
+                    agi: d.agi,
+                    safety: d.invertedSafety,
+                    count: d.count,
+                    label: d.label
+                };
+
+                if (d.agi < centerX && d.invertedSafety < centerY) {
+                    quadrants.topLeft.push(point);
+                } else if (d.agi >= centerX && d.invertedSafety < centerY) {
+                    quadrants.topRight.push(point);
+                } else if (d.agi < centerX && d.invertedSafety >= centerY) {
+                    quadrants.bottomLeft.push(point);
+                } else {
+                    quadrants.bottomRight.push(point);
+                }
+            });
+
+            // Sort each quadrant by count (descending)
+            Object.keys(quadrants).forEach(key => {
+                quadrants[key].sort((a, b) => b.count - a.count);
+            });
+
+            const threshold = collisionThreshold;
+            const shownLabels = [];
+
+            // Function to try adding labels from a quadrant
+            const addFromQuadrant = (points, maxFromQuadrant) => {
+                let added = 0;
+                for (let candidate of points) {
+                    if (added >= maxFromQuadrant) break;
+
+                    let hasCollision = false;
+                    for (let shown of shownLabels) {
+                        const distance = Math.sqrt(
+                            Math.pow(candidate.agi - shown.agi, 2) +
+                            Math.pow(candidate.safety - shown.safety, 2)
+                        );
+                        if (distance < threshold) {
+                            hasCollision = true;
+                            break;
+                        }
+                    }
+
+                    if (!hasCollision) {
+                        shownLabels.push(candidate);
+                        visibleLabelIndices.add(candidate.index);
+                        added++;
+                    }
+                }
+            };
+
+            // First pass: Add at least 2 from each quadrant to ensure coverage
+            addFromQuadrant(quadrants.topLeft, 2);
+            addFromQuadrant(quadrants.topRight, 2);
+            addFromQuadrant(quadrants.bottomLeft, 2);
+            addFromQuadrant(quadrants.bottomRight, 2);
+
+            // Second pass: Fill remaining slots with highest counts overall
+            const allRemaining = [
+                ...quadrants.topLeft,
+                ...quadrants.topRight,
+                ...quadrants.bottomLeft,
+                ...quadrants.bottomRight
+            ].filter(p => !visibleLabelIndices.has(p.index))
+             .sort((a, b) => b.count - a.count);
+
+            for (let candidate of allRemaining) {
+                if (shownLabels.length >= 25) break;
+
+                let hasCollision = false;
+                for (let shown of shownLabels) {
+                    const distance = Math.sqrt(
+                        Math.pow(candidate.agi - shown.agi, 2) +
+                        Math.pow(candidate.safety - shown.safety, 2)
+                    );
+                    if (distance < threshold) {
+                        hasCollision = true;
+                        break;
+                    }
+                }
+
+                if (!hasCollision) {
+                    shownLabels.push(candidate);
+                    visibleLabelIndices.add(candidate.index);
+                }
+            }
+        }
+
+        function shouldShowLabel(index, allPoints) {
+            // Simply check if this index is in the pre-calculated set
+            return visibleLabelIndices.has(index);
+        }
+
+        function updateStats() {
+            // Top AGI optimists - dinner
+            const dinnerByAgi = [...processedData.dinner].sort((a, b) => b.agi - a.agi).slice(0, 5);
+            document.getElementById('topAgiDinner').innerHTML = dinnerByAgi
+                .map(d => `<div>${d.label}: <strong>${d.agi.toFixed(2)}</strong>/5 (n=${d.count})</div>`)
+                .join('');
+
+            // Top AGI optimists - workplace
+            const workplaceByAgi = [...processedData.workplace].sort((a, b) => b.agi - a.agi).slice(0, 5);
+            document.getElementById('topAgiWorkplace').innerHTML = workplaceByAgi
+                .map(d => `<div>${d.label}: <strong>${d.agi.toFixed(2)}</strong>/5 (n=${d.count})</div>`)
+                .join('');
+
+            // Most safety-concerned
+            const allBysafety = [
+                ...processedData.dinner.map(d => ({...d, category: 'Dinner'})),
+                ...processedData.workplace.map(d => ({...d, category: 'Workplace'})),
+                ...processedData.podcast.map(d => ({...d, category: 'Podcast'}))
+            ].sort((a, b) => b.safety - a.safety).slice(0, 5);
+
+            document.getElementById('topSafety').innerHTML = allBysafety.map(d => `<div>${d.label}: <strong>${d.safety.toFixed(2)}</strong>/5 (${d.category})</div>`)
+                .join('');
+
+            // Most "move fast"
+            const allByMoveFast = [
+                ...processedData.dinner.map(d => ({...d, category: 'Dinner'})),
+                ...processedData.workplace.map(d => ({...d, category: 'Workplace'})),
+                ...processedData.podcast.map(d => ({...d, category: 'Podcast'}))
+            ].sort((a, b) => a.safety - b.safety).slice(0, 5);
+
+            document.getElementById('topMoveFast').innerHTML = allByMoveFast
+                .map(d => `<div>${d.label}: <strong>${d.safety.toFixed(2)}</strong>/5 (${d.category})</div>`)
+                .join('');
+        }
+
+        // Category selector
+        document.getElementById('categorySelect').addEventListener('change', function(e) {
+            currentCategory = e.target.value;
+            updateChart(currentCategory);
+        });
+
+        // Threshold slider
+        document.getElementById('thresholdSlider').addEventListener('input', function(e) {
+            collisionThreshold = parseFloat(e.target.value);
+            document.getElementById('thresholdValue').textContent = collisionThreshold.toFixed(2);
+            updateChart(currentCategory);
+        });
+    </script>
+</body>
+</html>

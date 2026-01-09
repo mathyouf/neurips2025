@@ -1,0 +1,2076 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NeurIPS Twin Survey 2025 - Analysis</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2"></script>
+    <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Times New Roman', Times, serif;
+            background: #ffffff;
+            color: #000;
+            line-height: 1.6;
+            padding: 40px 20px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        header {
+            text-align: center;
+            margin-bottom: 40px;
+            padding-bottom: 20px;
+            border-bottom: 2px solid #000;
+        }
+
+        h1 {
+            font-size: 2em;
+            font-weight: bold;
+            margin-bottom: 15px;
+            color: #000;
+        }
+
+        .authors {
+            font-size: 1.1em;
+            margin-bottom: 10px;
+            font-style: italic;
+        }
+
+        .affiliation {
+            font-size: 0.95em;
+            color: #333;
+            margin-bottom: 20px;
+        }
+
+        .abstract {
+            max-width: 900px;
+            margin: 20px auto;
+            text-align: justify;
+            font-size: 0.95em;
+            line-height: 1.5;
+        }
+
+        .abstract strong {
+            font-weight: bold;
+        }
+
+        h2 {
+            font-size: 1.5em;
+            font-weight: bold;
+            margin: 40px 0 20px 0;
+            color: #000;
+        }
+
+        .section {
+            margin: 40px 0;
+        }
+
+        .compass-section {
+            margin: 40px 0;
+        }
+
+        .chart-container {
+            position: relative;
+            width: 100%;
+            max-width: 800px;
+            margin: 30px auto;
+            aspect-ratio: 1 / 1;
+        }
+
+        .pie-charts-container {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 30px;
+            margin: 40px 0;
+        }
+
+        .pie-chart-wrapper {
+            background: #f9f9f9;
+            padding: 40px;
+            border: 1px solid #ddd;
+        }
+
+        .pie-chart-wrapper h3 {
+            font-size: 1em;
+            margin-bottom: 15px;
+            text-align: center;
+            color: #000;
+        }
+
+        .pie-chart-container {
+            position: relative;
+            width: 100%;
+            max-width: 400px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        .figure-caption {
+            text-align: center;
+            font-size: 0.9em;
+            margin: 15px auto 0;
+            max-width: 800px;
+            color: #333;
+        }
+
+        .figure-caption strong {
+            font-weight: bold;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 100px;
+            font-size: 1.2em;
+            color: #666;
+        }
+
+        footer {
+            margin-top: 60px;
+            padding-top: 20px;
+            border-top: 1px solid #ccc;
+            text-align: center;
+            font-size: 0.85em;
+            color: #666;
+        }
+
+        footer a {
+            color: #000;
+            text-decoration: underline;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>NeurIPS Twin Survey 2025: Understanding AI Researcher Perspectives</h1>
+            <div class="authors">Anonymous Authors</div>
+            <div class="affiliation">NeurIPS 2025</div>
+            <div class="abstract">
+                <strong>Abstract.</strong> We present an analysis of survey data (N=335) collected from AI researchers
+                attending NeurIPS 2025. The survey captures perspectives on AGI timelines, AI safety concerns,
+                workplace preferences, and research methodologies. We visualize the relationship between beliefs
+                using two-dimensional political compasses, revealing distinct clusters of researcher perspectives.
+            </div>
+        </header>
+
+        <div id="loading" class="loading">Loading survey data...</div>
+
+        <div id="content" style="display: none;">
+            <section class="section" style="background: #f8f9fa; padding: 20px; border-radius: 8px; margin-bottom: 30px;">
+                <h2 style="margin-top: 0;">Find Yourself</h2>
+                <div style="display: flex; flex-direction: column; gap: 15px; max-width: 600px;">
+                    <div>
+                        <label for="uuidInput" style="display: block; margin-bottom: 5px; font-weight: 600;">Enter your UUID:</label>
+                        <input type="text" id="uuidInput" placeholder="Enter your UUID to highlight yourself"
+                               style="width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px;">
+                    </div>
+                    <div>
+                        <label for="knnSlider" style="display: block; margin-bottom: 5px; font-weight: 600;">
+                            Number of nearest neighbors: <span id="knnValue">5</span>
+                        </label>
+                        <input type="range" id="knnSlider" min="0" max="20" value="5"
+                               style="width: 100%;">
+                        <div style="display: flex; justify-content: space-between; font-size: 12px; color: #666;">
+                            <span>0</span>
+                            <span>20</span>
+                        </div>
+                    </div>
+                    <div id="userInfo" style="display: none; background: white; padding: 10px; border-radius: 4px; border: 1px solid #ddd;">
+                        <strong>Your position:</strong>
+                        <div id="userDetails"></div>
+                    </div>
+                </div>
+            </section>
+
+            <section class="section compass-section">
+                <h2>1. Political Compass: AGI Beliefs vs. Safety Priorities</h2>
+                <div class="chart-container">
+                    <canvas id="compassChart1"></canvas>
+                </div>
+                <div class="figure-caption">
+                    <strong>Figure 1:</strong> Political compass mapping AI researcher positions based on AGI timeline
+                    beliefs (X-axis: "I believe AGI is likely within the next 10 years", 1-5 Likert scale) and AI safety
+                    priorities (Y-axis: "We should slow down AI progress until safety is better understood", inverted 1-5 scale).
+                    Each large point represents the average position of researchers sharing a categorical preference.
+                    Small colored dots represent individual respondents (with jitter to prevent overlap), colored based on
+                    their position. Color indicates safety priority through a blue-white-red gradient (blue = move fast,
+                    red = prioritize safety). Opacity encodes AGI timeline belief strength (faint = skeptical, solid = believer).
+                    Hover over a category to highlight its respondents with connecting lines.
+                </div>
+            </section>
+
+            <section class="section">
+                <h2>2. Categorical Response Distributions</h2>
+                <div class="pie-charts-container">
+                    <div class="pie-chart-wrapper">
+                        <h3>Dream Dinner Companion</h3>
+                        <div class="pie-chart-container">
+                            <canvas id="dinnerPieChart"></canvas>
+                        </div>
+                        <p style="font-size: 0.8em; text-align: center; margin-top: 15px; color: #333; line-height: 1.5;">
+                            <strong>Figure 2a:</strong> Distribution of respondents' preferred dinner companions.
+                            Survey item: "Who would you most want to have dinner with?" Shows categorical preferences
+                            for intellectual role models among NeurIPS attendees (n=335).
+                        </p>
+                    </div>
+                    <div class="pie-chart-wrapper">
+                        <h3>Preferred Workplace</h3>
+                        <div class="pie-chart-container">
+                            <canvas id="workplacePieChart"></canvas>
+                        </div>
+                        <p style="font-size: 0.8em; text-align: center; margin-top: 15px; color: #333; line-height: 1.5;">
+                            <strong>Figure 2b:</strong> Distribution of respondents' preferred workplace organizations.
+                            Survey item: "I would most want to work at:" Reveals institutional preferences and
+                            career aspirations within the AI research community (n=335).
+                        </p>
+                    </div>
+                    <div class="pie-chart-wrapper">
+                        <h3>Favorite ML Podcast</h3>
+                        <div class="pie-chart-container">
+                            <canvas id="podcastPieChart"></canvas>
+                        </div>
+                        <p style="font-size: 0.8em; text-align: center; margin-top: 15px; color: #333; line-height: 1.5;">
+                            <strong>Figure 2c:</strong> Distribution of respondents' preferred ML-related podcasts.
+                            Survey item: "What is your favorite ML related podcast?" Captures media consumption
+                            patterns and information source preferences among researchers (n=335).
+                        </p>
+                    </div>
+                </div>
+            </section>
+
+            <section class="section compass-section">
+                <h2>3. Political Compass: Prototype vs. Paper & Creativity vs. Rigor</h2>
+                <div class="chart-container">
+                    <canvas id="compassChart2"></canvas>
+                </div>
+                <div class="figure-caption">
+                    <strong>Figure 2:</strong> Second political compass showing the relationship between preference for
+                    prototypes vs. papers (X-axis: "I'd rather build a working prototype than write a perfect paper", 1-5 scale)
+                    and belief in creativity vs. rigor (Y-axis: "I believe creativity is more important than rigor in research", 1-5 scale).
+                    Each large point represents the average position of researchers sharing a categorical preference.
+                    Small colored dots represent individual respondents (with jitter to prevent overlap), colored based on
+                    their position. Color encodes Y-axis position (blue = rigor-focused, red = creativity-focused). Opacity
+                    encodes X-axis belief strength (faint = prefer papers, solid = prefer prototypes). Hover over a category
+                    to highlight its respondents with connecting lines.
+                </div>
+            </section>
+
+            <section class="section" id="responsesSection" style="display: none;">
+                <h2>Your Responses & Nearest Neighbors</h2>
+                <div id="responsesContent" style="background: #f8f9fa; padding: 15px; border-radius: 8px;">
+                    <!-- Will be populated dynamically -->
+                </div>
+            </section>
+
+            <section class="section">
+                <h2>3. UMAP Clustering Across All Questions</h2>
+                <p style="font-style: italic; color: #666; margin-bottom: 15px;">
+                    This visualization shows respondent similarity using UMAP dimensionality reduction across all survey questions.
+                    Categorical and open-ended responses were embedded using a text embedding model.
+                    Closer points indicate more similar overall response patterns.
+                </p>
+                <div style="margin-bottom: 15px;">
+                    <label for="questionSelector" style="font-weight: 600; margin-right: 10px;">Color by question:</label>
+                    <select id="questionSelector" style="padding: 5px 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px;">
+                        <option value="">-- Select a question --</option>
+                    </select>
+                </div>
+                <div id="umapLegend" style="margin-bottom: 15px; padding: 10px; background: #f9f9f9; border-radius: 4px; display: none;">
+                    <!-- Legend will be populated dynamically -->
+                </div>
+                <div class="chart-container">
+                    <canvas id="umapChart"></canvas>
+                </div>
+                <div class="figure-caption">
+                    <strong>Figure 3:</strong> UMAP projection of all survey responses showing natural clustering of similar researchers.
+                    Each point represents one respondent, positioned based on similarity across all questions.
+                    Use the dropdown above to color points by their answer to specific questions.
+                </div>
+            </section>
+        </div>
+
+        <footer>
+            <p>NeurIPS Twin Survey 2025 | <a href="https://github.com/mathyouf/neurips2025">View on GitHub</a></p>
+        </footer>
+    </div>
+
+    <script>
+        let surveyData = null;
+        let processedData = {
+            dinner: [],
+            workplace: [],
+            podcast: []
+        };
+        let processedData2 = {
+            dinner: [],
+            workplace: [],
+            podcast: []
+        };
+        const collisionThreshold = 0.2;
+        let visibleLabelIndices1 = new Set();
+        let visibleLabelIndices2 = new Set();
+        let hoveredCategory1 = null;
+        let hoveredCategory2 = null;
+        let chart1Instance = null;
+        let chart2Instance = null;
+        let hoveredCategoryPoint1 = null;  // Stores {x, y, matches: [indices]}
+        let hoveredCategoryPoint2 = null;  // Stores {x, y, matches: [indices]}
+        let hoveredIndividual1 = null;  // Stores {x, y, categoryIndices: [indices]}
+        let hoveredIndividual2 = null;  // Stores {x, y, categoryIndices: [indices]}
+        let hoveredCategoryLabelsToShow1 = new Set();  // Category indices to show labels for
+        let hoveredCategoryLabelsToShow2 = new Set();  // Category indices to show labels for
+        let groupsData = null;  // Groups data with UUID, email, X, Y
+        let highlightedIndices = new Set();  // Indices of user + KNN to highlight
+        let currentUserUUID = null;
+        let currentK = 5;
+
+        Papa.parse('neuripstwin7.csv', {
+            download: true,
+            header: true,
+            complete: function(results) {
+                surveyData = results.data.filter(row => row.Timestamp && row.Timestamp.trim() !== '');
+                console.log('Loaded', surveyData.length, 'responses');
+
+                // Process data for first compass (AGI vs Safety)
+                processedData.dinner = processCategory(
+                    'Who would you most want to have dinner with?',
+                    'I believe AGI is likely within the next 10 years.',
+                    'We should slow down AI progress until safety is better understood.',
+                    3
+                );
+                processedData.workplace = processCategory(
+                    'I would most want to work at:',
+                    'I believe AGI is likely within the next 10 years.',
+                    'We should slow down AI progress until safety is better understood.',
+                    3
+                );
+                processedData.podcast = processCategory(
+                    'What is your favorite ML related podcast?',
+                    'I believe AGI is likely within the next 10 years.',
+                    'We should slow down AI progress until safety is better understood.',
+                    5
+                );
+
+                // Process data for second compass (Prototype vs Creativity)
+                processedData2.dinner = processCategory(
+                    'Who would you most want to have dinner with?',
+                    'I’d rather build a working prototype than write a perfect paper.',
+                    'I believe creativity is more important than rigor in research.',
+                    3
+                );
+                processedData2.workplace = processCategory(
+                    'I would most want to work at:',
+                    'I’d rather build a working prototype than write a perfect paper.',
+                    'I believe creativity is more important than rigor in research.',
+                    3
+                );
+                processedData2.podcast = processCategory(
+                    'What is your favorite ML related podcast?',
+                    'I’d rather build a working prototype than write a perfect paper.',
+                    'I believe creativity is more important than rigor in research.',
+                    5
+                );
+
+                document.getElementById('loading').style.display = 'none';
+                document.getElementById('content').style.display = 'block';
+
+                console.log('First compass data points:',
+                    processedData.dinner.length + processedData.workplace.length + processedData.podcast.length);
+                console.log('Second compass data points:',
+                    processedData2.dinner.length + processedData2.workplace.length + processedData2.podcast.length);
+                console.log('Sample from second compass:', processedData2.dinner.slice(0, 3));
+
+                createCompassChart1();
+                createCompassChart2();
+                createPieCharts();
+
+                // Load groups data for UUID highlighting
+                loadGroupsData();
+            },
+            error: function(error) {
+                console.error('Error loading data:', error);
+                document.getElementById('loading').innerHTML = 'Error loading data. Please check the console.';
+            }
+        });
+
+        // Plugin to draw connecting lines from category points to individual respondents
+        const connectionLinesPlugin = {
+            id: 'connectionLines',
+            beforeDatasetsDraw(chart, args, options) {
+                const { ctx, chartArea, scales } = chart;
+                const isChart1 = chart.canvas.id === 'compassChart1';
+                const hoveredCategoryPoint = isChart1 ? hoveredCategoryPoint1 : hoveredCategoryPoint2;
+                const hoveredIndividual = isChart1 ? hoveredIndividual1 : hoveredIndividual2;
+
+                ctx.save();
+                ctx.strokeStyle = 'rgba(100, 100, 255, 0.3)';
+                ctx.lineWidth = 1.5;
+
+                // Draw lines from category point to matching individuals
+                if (hoveredCategoryPoint && hoveredCategoryPoint.matches && hoveredCategoryPoint.matches.length > 0) {
+                    const individualDataset = chart.data.datasets[0];
+
+                    hoveredCategoryPoint.matches.forEach(index => {
+                        const individual = individualDataset.data[index];
+                        if (!individual) return;
+
+                        const categoryX = scales.x.getPixelForValue(hoveredCategoryPoint.x);
+                        const categoryY = scales.y.getPixelForValue(hoveredCategoryPoint.y);
+                        const indX = scales.x.getPixelForValue(individual.x);
+                        const indY = scales.y.getPixelForValue(individual.y);
+
+                        ctx.beginPath();
+                        ctx.moveTo(categoryX, categoryY);
+                        ctx.lineTo(indX, indY);
+                        ctx.stroke();
+                    });
+                }
+
+                // Draw lines from individual to their category choices
+                if (hoveredIndividual && hoveredIndividual.categoryIndices && hoveredIndividual.categoryIndices.length > 0) {
+                    const categoryDataset = chart.data.datasets[1];
+
+                    hoveredIndividual.categoryIndices.forEach(index => {
+                        const category = categoryDataset.data[index];
+                        if (!category) return;
+
+                        const indX = scales.x.getPixelForValue(hoveredIndividual.x);
+                        const indY = scales.y.getPixelForValue(hoveredIndividual.y);
+                        const categoryX = scales.x.getPixelForValue(category.x);
+                        const categoryY = scales.y.getPixelForValue(category.y);
+
+                        ctx.beginPath();
+                        ctx.moveTo(indX, indY);
+                        ctx.lineTo(categoryX, categoryY);
+                        ctx.stroke();
+                    });
+                }
+
+                ctx.restore();
+            }
+        };
+
+        // Load and process groups data
+        function loadGroupsData() {
+            Papa.parse('groups_with_uuid.csv', {
+                download: true,
+                header: true,
+                complete: function(results) {
+                    groupsData = results.data;
+                    console.log('Loaded groups data:', groupsData.length, 'entries');
+                    setupUIEventListeners();
+                    createUMAPChart();
+                    populateQuestionSelector();
+                },
+                error: function(error) {
+                    console.error('Error loading groups data:', error);
+                }
+            });
+        }
+
+        // Set up event listeners for UUID input and k-slider
+        function setupUIEventListeners() {
+            const uuidInput = document.getElementById('uuidInput');
+            const knnSlider = document.getElementById('knnSlider');
+            const knnValue = document.getElementById('knnValue');
+
+            // Check for UUID in URL parameters
+            const urlParams = new URLSearchParams(window.location.search);
+            const uuidFromURL = urlParams.get('uuid');
+            if (uuidFromURL) {
+                uuidInput.value = uuidFromURL;
+                currentUserUUID = uuidFromURL;
+                updateHighlighting();
+            }
+
+            // Handle UUID input
+            uuidInput.addEventListener('input', function() {
+                const uuid = this.value.trim();
+                if (uuid) {
+                    currentUserUUID = uuid;
+                    updateHighlighting();
+                } else {
+                    currentUserUUID = null;
+                    clearHighlighting();
+                }
+            });
+
+            // Handle k-slider
+            knnSlider.addEventListener('input', function() {
+                currentK = parseInt(this.value);
+                knnValue.textContent = currentK;
+                if (currentUserUUID) {
+                    updateHighlighting();
+                }
+            });
+        }
+
+        // Calculate euclidean distance
+        function euclideanDistance(x1, y1, x2, y2) {
+            return Math.sqrt(Math.pow(x1 - x2, 2) + Math.pow(y1 - y2, 2));
+        }
+
+        // Find k nearest neighbors based on cluster X,Y coordinates
+        function findKNN(userGroupData, k) {
+            if (!userGroupData || !groupsData) return [];
+
+            const userX = parseFloat(userGroupData.X);
+            const userY = parseFloat(userGroupData.Y);
+
+            // Calculate distances to all other points
+            const distances = groupsData.map((group, idx) => ({
+                index: idx,
+                uuid: group.UUID,
+                distance: euclideanDistance(userX, userY, parseFloat(group.X), parseFloat(group.Y))
+            }));
+
+            // Sort by distance and take k nearest (excluding self at distance 0)
+            distances.sort((a, b) => a.distance - b.distance);
+            return distances.slice(1, k + 1);  // Skip first (self) and take next k
+        }
+
+        // Update highlighting based on current UUID and k
+        function updateHighlighting() {
+            if (!currentUserUUID || !groupsData || !surveyData) return;
+
+            // Find user's group data
+            const userGroups = groupsData.filter(g => g.UUID === currentUserUUID);
+            if (userGroups.length === 0) {
+                document.getElementById('userInfo').style.display = 'none';
+                console.log('UUID not found');
+                return;
+            }
+
+            // Use first matching entry
+            const userGroupData = userGroups[0];
+
+            // Find KNN
+            const knn = findKNN(userGroupData, currentK);
+
+            // Find all UUIDs to highlight (user + neighbors)
+            const uuidsToHighlight = new Set([userGroupData.UUID]);
+            knn.forEach(n => uuidsToHighlight.add(n.uuid));
+
+            // Map UUIDs to survey data indices
+            highlightedIndices.clear();
+            surveyData.forEach((row, idx) => {
+                if (uuidsToHighlight.has(row['UUID'])) {
+                    highlightedIndices.add(idx);
+                }
+            });
+
+            // Update user info display
+            document.getElementById('userInfo').style.display = 'block';
+            document.getElementById('userDetails').innerHTML = `
+                <div>Cluster position: (${userGroupData.X}, ${userGroupData.Y})</div>
+                <div>Cluster ID: ${userGroupData.Cluster_ID}</div>
+                <div>Group ID: ${userGroupData.Optimized_Group_ID}</div>
+                <div style="margin-top: 5px;">Showing you + ${highlightedIndices.size - 1} neighbors</div>
+            `;
+
+            // Update charts
+            updateChartHighlighting();
+            displayHighlightedResponses();
+        }
+
+        // Clear highlighting
+        function clearHighlighting() {
+            highlightedIndices.clear();
+            document.getElementById('userInfo').style.display = 'none';
+            document.getElementById('responsesSection').style.display = 'none';
+            updateChartHighlighting();
+        }
+
+        // Update chart colors based on highlighted indices
+        function updateChartHighlighting() {
+            if (!chart1Instance || !chart2Instance) return;
+
+            // Update chart 1
+            const individuals1 = chart1Instance.data.datasets[0].data;
+            chart1Instance.data.datasets[0].backgroundColor = individuals1.map((point, idx) => {
+                const ind = point;
+                const color = getColorForPoint(ind.originalX, ind.originalY);
+                if (highlightedIndices.has(ind.respondentId)) {
+                    return color.replace(/[\d.]+\)$/, '1.0)');
+                }
+                return color.replace(/[\d.]+\)$/, '0.2)');
+            });
+            chart1Instance.data.datasets[0].borderColor = individuals1.map((point, idx) => {
+                const ind = point;
+                const color = getBorderColorForPoint(ind.originalX, ind.originalY);
+                if (highlightedIndices.has(ind.respondentId)) {
+                    return 'rgba(255, 215, 0, 1)';
+                }
+                return color.replace('rgb', 'rgba').replace(')', ', 0.4)');
+            });
+            chart1Instance.data.datasets[0].borderWidth = individuals1.map((point, idx) => {
+                return highlightedIndices.has(point.respondentId) ? 2 : 0.5;
+            });
+            chart1Instance.data.datasets[0].pointRadius = individuals1.map((point, idx) => {
+                return highlightedIndices.has(point.respondentId) ? 4 : 2;
+            });
+
+            // Update chart 2
+            const individuals2 = chart2Instance.data.datasets[0].data;
+            chart2Instance.data.datasets[0].backgroundColor = individuals2.map((point, idx) => {
+                const ind = point;
+                const color = getColorForPoint(ind.originalX, ind.originalY);
+                if (highlightedIndices.has(ind.respondentId)) {
+                    return color.replace(/[\d.]+\)$/, '1.0)');
+                }
+                return color.replace(/[\d.]+\)$/, '0.2)');
+            });
+            chart2Instance.data.datasets[0].borderColor = individuals2.map((point, idx) => {
+                const ind = point;
+                const color = getBorderColorForPoint(ind.originalX, ind.originalY);
+                if (highlightedIndices.has(ind.respondentId)) {
+                    return 'rgba(255, 215, 0, 1)';
+                }
+                return color.replace('rgb', 'rgba').replace(')', ', 0.4)');
+            });
+            chart2Instance.data.datasets[0].borderWidth = individuals2.map((point, idx) => {
+                return highlightedIndices.has(point.respondentId) ? 2 : 0.5;
+            });
+            chart2Instance.data.datasets[0].pointRadius = individuals2.map((point, idx) => {
+                return highlightedIndices.has(point.respondentId) ? 4 : 2;
+            });
+
+            chart1Instance.update('none');
+            chart2Instance.update('none');
+
+            // Update UMAP chart if it exists
+            if (window.umapChartInstance) {
+                updateUMAPHighlighting();
+            }
+        }
+
+        function addJitter(value, amount = 0.08) {
+            return value + (Math.random() - 0.5) * amount;
+        }
+
+        function processIndividualRespondents(xCol, yCol, categories) {
+            const individuals = [];
+
+            surveyData.forEach((row, idx) => {
+                const x = parseFloat(row[xCol]);
+                const y = parseFloat(row[yCol]);
+
+                if (!isNaN(x) && !isNaN(y)) {
+                    const categoryValues = {};
+                    categories.forEach(cat => {
+                        categoryValues[cat.col] = row[cat.col];
+                    });
+
+                    individuals.push({
+                        x: addJitter(x),
+                        y: addJitter(y),
+                        originalX: x,
+                        originalY: y,
+                        categories: categoryValues,
+                        respondentId: idx
+                    });
+                }
+            });
+
+            return individuals;
+        }
+
+        function processCategory(categoryCol, xCol, yCol, minCount) {
+            const groups = {};
+
+            surveyData.forEach(row => {
+                const value = row[categoryCol];
+                if (!value || value.trim() === '') return;
+
+                if (!groups[value]) {
+                    groups[value] = {
+                        xScores: [],
+                        yScores: []
+                    };
+                }
+
+                const x = parseFloat(row[xCol]);
+                const y = parseFloat(row[yCol]);
+
+                if (!isNaN(x)) groups[value].xScores.push(x);
+                if (!isNaN(y)) groups[value].yScores.push(y);
+            });
+
+            const result = [];
+            for (const [label, data] of Object.entries(groups)) {
+                if (data.xScores.length >= minCount && data.yScores.length >= minCount) {
+                    const avgX = data.xScores.reduce((a, b) => a + b, 0) / data.xScores.length;
+                    const avgY = data.yScores.reduce((a, b) => a + b, 0) / data.yScores.length;
+
+                    result.push({
+                        label: label,
+                        x: avgX,
+                        y: avgY,
+                        invertedY: 6 - avgY,
+                        count: data.xScores.length
+                    });
+                }
+            }
+
+            return result;
+        }
+
+        function getColorForPoint(x, y) {
+            const yNorm = (y - 1) / 4;
+            let r, g, b;
+
+            if (yNorm < 0.5) {
+                const t = yNorm * 2;
+                r = Math.round(59 + (255 - 59) * t);
+                g = Math.round(130 + (255 - 130) * t);
+                b = Math.round(246 + (255 - 246) * t);
+            } else {
+                const t = (yNorm - 0.5) * 2;
+                r = Math.round(255 + (220 - 255) * t);
+                g = Math.round(255 + (20 - 255) * t);
+                b = Math.round(255 + (20 - 255) * t);
+            }
+
+            const xNorm = (x - 1) / 4;
+            const alphaNorm = Math.pow(xNorm, 2);
+            const alpha = 0.25 + (alphaNorm * 0.75);
+
+            return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+        }
+
+        function getBorderColorForPoint(x, y) {
+            const yNorm = (y - 1) / 4;
+            let r, g, b;
+
+            if (yNorm < 0.5) {
+                const t = yNorm * 2;
+                r = Math.round(59 + (255 - 59) * t);
+                g = Math.round(130 + (255 - 130) * t);
+                b = Math.round(246 + (255 - 246) * t);
+            } else {
+                const t = (yNorm - 0.5) * 2;
+                r = Math.round(255 + (220 - 255) * t);
+                g = Math.round(255 + (20 - 255) * t);
+                b = Math.round(255 + (20 - 255) * t);
+            }
+
+            return `rgb(${r}, ${g}, ${b})`;
+        }
+
+        function getHoverColorForPoint(x, y) {
+            const yNorm = (y - 1) / 4;
+            let r, g, b;
+
+            if (yNorm < 0.5) {
+                const t = yNorm * 2;
+                r = Math.round(59 + (255 - 59) * t);
+                g = Math.round(130 + (255 - 130) * t);
+                b = Math.round(246 + (255 - 246) * t);
+            } else {
+                const t = (yNorm - 0.5) * 2;
+                r = Math.round(255 + (220 - 255) * t);
+                g = Math.round(255 + (20 - 255) * t);
+                b = Math.round(255 + (20 - 255) * t);
+            }
+
+            return `rgba(${r}, ${g}, ${b}, 1.0)`;
+        }
+
+        function calculateVisibleLabels(allData, visibleSet) {
+            visibleSet.clear();
+
+            if (!allData || allData.length === 0) return;
+
+            const centerX = 3;
+            const centerY = 3;
+
+            const quadrants = {
+                topLeft: [],
+                topRight: [],
+                bottomLeft: [],
+                bottomRight: []
+            };
+
+            allData.forEach((d, i) => {
+                const point = {
+                    index: i,
+                    x: d.x,
+                    y: d.y,
+                    count: d.count,
+                    label: d.label
+                };
+
+                if (d.x < centerX && d.y < centerY) {
+                    quadrants.topLeft.push(point);
+                } else if (d.x >= centerX && d.y < centerY) {
+                    quadrants.topRight.push(point);
+                } else if (d.x < centerX && d.y >= centerY) {
+                    quadrants.bottomLeft.push(point);
+                } else {
+                    quadrants.bottomRight.push(point);
+                }
+            });
+
+            Object.keys(quadrants).forEach(key => {
+                quadrants[key].sort((a, b) => b.count - a.count);
+            });
+
+            const threshold = collisionThreshold;
+            const shownLabels = [];
+
+            const addFromQuadrant = (points, maxFromQuadrant) => {
+                let added = 0;
+                for (let candidate of points) {
+                    if (added >= maxFromQuadrant) break;
+
+                    let hasCollision = false;
+                    for (let shown of shownLabels) {
+                        const distance = Math.sqrt(
+                            Math.pow(candidate.x - shown.x, 2) +
+                            Math.pow(candidate.y - shown.y, 2)
+                        );
+                        if (distance < threshold) {
+                            hasCollision = true;
+                            break;
+                        }
+                    }
+
+                    if (!hasCollision) {
+                        shownLabels.push(candidate);
+                        visibleSet.add(candidate.index);
+                        added++;
+                    }
+                }
+            };
+
+            addFromQuadrant(quadrants.topLeft, 2);
+            addFromQuadrant(quadrants.topRight, 2);
+            addFromQuadrant(quadrants.bottomLeft, 2);
+            addFromQuadrant(quadrants.bottomRight, 2);
+
+            const allRemaining = [
+                ...quadrants.topLeft,
+                ...quadrants.topRight,
+                ...quadrants.bottomLeft,
+                ...quadrants.bottomRight
+            ].filter(p => !visibleSet.has(p.index))
+             .sort((a, b) => b.count - a.count);
+
+            for (let candidate of allRemaining) {
+                if (shownLabels.length >= 25) break;
+
+                let hasCollision = false;
+                for (let shown of shownLabels) {
+                    const distance = Math.sqrt(
+                        Math.pow(candidate.x - shown.x, 2) +
+                        Math.pow(candidate.y - shown.y, 2)
+                    );
+                    if (distance < threshold) {
+                        hasCollision = true;
+                        break;
+                    }
+                }
+
+                if (!hasCollision) {
+                    shownLabels.push(candidate);
+                    visibleSet.add(candidate.index);
+                }
+            }
+        }
+
+        function createCompassChart1() {
+            const canvas = document.getElementById('compassChart1');
+            const ctx = canvas.getContext('2d');
+
+            let rawData = [
+                ...processedData.dinner,
+                ...processedData.workplace,
+                ...processedData.podcast
+            ];
+
+            // Create allData with y set to invertedY for collision detection
+            let allData = rawData.map(d => ({
+                ...d,
+                displayY: d.invertedY,
+                y: d.invertedY  // For collision detection
+            }));
+
+            const minVal = 1;
+            const maxVal = 5;
+
+            calculateVisibleLabels(allData, visibleLabelIndices1);
+
+            // Process individual respondents
+            const individuals = processIndividualRespondents(
+                'I believe AGI is likely within the next 10 years.',
+                'We should slow down AI progress until safety is better understood.',
+                [
+                    {col: 'Who would you most want to have dinner with?'},
+                    {col: 'I would most want to work at:'},
+                    {col: 'What is your favorite ML related podcast?'}
+                ]
+            );
+
+            // Create individual points dataset (rendered first, so behind category points)
+            const individualDataset = {
+                label: 'Individual Respondents',
+                data: individuals.map(ind => ({
+                    x: ind.x,
+                    y: 6 - ind.y,  // Invert Y for display
+                    categories: ind.categories,
+                    respondentId: ind.respondentId,
+                    originalX: ind.originalX,
+                    originalY: ind.originalY
+                })),
+                backgroundColor: individuals.map((ind, idx) => {
+                    // Color based on coordinates with reduced opacity
+                    const color = getColorForPoint(ind.originalX, ind.originalY);
+                    // Highlight if in highlighted set (user + KNN)
+                    if (highlightedIndices.has(ind.respondentId)) {
+                        return color.replace(/[\d.]+\)$/, '1.0)');  // Full opacity for highlighted
+                    }
+                    return color.replace(/[\d.]+\)$/, '0.2)');  // Normal opacity
+                }),
+                borderColor: individuals.map((ind, idx) => {
+                    const color = getBorderColorForPoint(ind.originalX, ind.originalY);
+                    // Bright border if highlighted
+                    if (highlightedIndices.has(ind.respondentId)) {
+                        return 'rgba(255, 215, 0, 1)';  // Gold border
+                    }
+                    return color.replace('rgb', 'rgba').replace(')', ', 0.4)');
+                }),
+                borderWidth: individuals.map((ind, idx) => {
+                    return highlightedIndices.has(ind.respondentId) ? 2 : 0.5;
+                }),
+                pointRadius: individuals.map((ind, idx) => {
+                    return highlightedIndices.has(ind.respondentId) ? 4 : 2;
+                }),
+                pointHoverRadius: 3,  // Slightly larger on hover
+                pointStyle: 'circle',
+                hitRadius: 3,  // Small hit area for individual points
+                order: 2,  // Draw individual points first (behind categories)
+                datalabels: {
+                    display: false  // No labels for individual points
+                }
+            };
+
+            // Create category averages dataset
+            const categoryDataset = {
+                label: 'Category Averages',
+                order: 1,  // Draw category points last (on top of individuals)
+                data: allData.map(d => ({
+                    x: d.x,
+                    y: d.displayY,
+                    label: d.label,
+                    count: d.count,
+                    xVal: d.x,
+                    yVal: 6 - d.displayY,  // Convert back to original safety value
+                    categoryLabel: d.label
+                })),
+                backgroundColor: rawData.map(d => getColorForPoint(d.x, d.y)),
+                borderColor: rawData.map(d => getBorderColorForPoint(d.x, d.y)),
+                borderWidth: 1.5,
+                pointRadius: allData.map(d => Math.max(4, Math.sqrt(d.count) * 1.2)),
+                pointHoverRadius: allData.map(d => Math.max(4, Math.sqrt(d.count) * 1.2)),
+                pointHoverBackgroundColor: rawData.map(d => getHoverColorForPoint(d.x, d.y)),
+                pointHoverBorderColor: rawData.map(d => getBorderColorForPoint(d.x, d.y)),
+                pointHoverBorderWidth: 2.5,
+            };
+
+            chart1Instance = new Chart(ctx, {
+                type: 'scatter',
+                data: { datasets: [individualDataset, categoryDataset] },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: true,
+                    aspectRatio: 1,
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    const point = context.raw;
+                                    return [
+                                        `${point.label}`,
+                                        `AGI Timeline: ${point.xVal.toFixed(2)}/5`,
+                                        `Safety Priority: ${point.yVal.toFixed(2)}/5`,
+                                        `Responses: ${point.count}`
+                                    ];
+                                }
+                            }
+                        },
+                        datalabels: {
+                            display: function(context) {
+                                // Show if: hovered, in default visible set, or in hover-forced set
+                                if (hoveredCategoryLabelsToShow1.size > 0) {
+                                    return hoveredCategoryLabelsToShow1.has(context.dataIndex);
+                                }
+                                return context.hovered || visibleLabelIndices1.has(context.dataIndex);
+                            },
+                            align: function(context) {
+                                const point = context.dataset.data[context.dataIndex];
+                                const mid = (minVal + maxVal) / 2;
+                                if (point.x > mid && point.y < mid) return 'right';
+                                if (point.x < mid && point.y < mid) return 'left';
+                                if (point.x > mid && point.y > mid) return 'right';
+                                return 'left';
+                            },
+                            offset: 6,
+                            color: '#000',
+                            font: { size: 9, weight: '600', family: 'Arial, sans-serif' },
+                            formatter: function(value) {
+                                const label = value.label;
+                                return label.length > 18 ? label.substring(0, 16) + '...' : label;
+                            },
+                            backgroundColor: 'rgba(255, 255, 255, 0.95)',
+                            borderColor: function(context) {
+                                return context.hovered ? '#000' : '#999';
+                            },
+                            borderWidth: 1,
+                            borderRadius: 3,
+                            padding: 4
+                        }
+                    },
+                    onHover: function(event, activeElements) {
+                        if (activeElements.length > 0) {
+                            const element = activeElements[0];
+                            const datasetIndex = element.datasetIndex;
+                            const dataIndex = element.index;
+
+                            // Handle individual point hover (dataset index 0)
+                            if (datasetIndex === 0) {
+                                const individual = individuals[dataIndex];
+
+                                // Find which category points match this individual's choices
+                                const categoryIndices = [];
+                                allData.forEach((cat, idx) => {
+                                    if (Object.values(individual.categories).includes(cat.label)) {
+                                        categoryIndices.push(idx);
+                                    }
+                                });
+
+                                // Store for line drawing
+                                hoveredIndividual1 = {
+                                    x: individual.x,
+                                    y: 6 - individual.y,  // Use display Y (inverted)
+                                    categoryIndices: categoryIndices
+                                };
+                                hoveredCategoryPoint1 = null;
+                                hoveredCategory1 = null;
+
+                                // Dim all category points except the ones this individual chose
+                                const categoryColors = rawData.map((d, idx) => {
+                                    const baseColor = getColorForPoint(d.x, d.y);
+                                    const isMatch = categoryIndices.includes(idx);
+                                    // Keep base color, just reduce opacity for non-matches
+                                    return isMatch ? baseColor : baseColor.replace(/[\d.]+\)$/, '0.15)');
+                                });
+
+                                // Add bright border to matching categories
+                                const categoryBorders = rawData.map((d, idx) => {
+                                    const isMatch = categoryIndices.includes(idx);
+                                    return isMatch ? 'rgba(255, 215, 0, 1)' : getBorderColorForPoint(d.x, d.y);
+                                });
+
+                                const categoryBorderWidths = allData.map((d, idx) => {
+                                    return categoryIndices.includes(idx) ? 3 : 1.5;
+                                });
+
+                                chart1Instance.data.datasets[1].backgroundColor = categoryColors;
+                                chart1Instance.data.datasets[1].borderColor = categoryBorders;
+                                chart1Instance.data.datasets[1].borderWidth = categoryBorderWidths;
+
+                                // Force labels to show ONLY for matching categories
+                                hoveredCategoryLabelsToShow1.clear();
+                                categoryIndices.forEach(idx => hoveredCategoryLabelsToShow1.add(idx));
+
+                                chart1Instance.update('none');
+                            }
+                            // Handle category point hover (dataset index 1)
+                            else if (datasetIndex === 1) {
+                                const categoryLabel = categoryDataset.data[dataIndex].categoryLabel;
+                                const hoveredCategoryIndex = dataIndex;
+
+                                // Skip if already hovering this category
+                                if (hoveredCategory1 === categoryLabel) return;
+                                hoveredCategory1 = categoryLabel;
+
+                                const categoryPoint = categoryDataset.data[dataIndex];
+
+                                // Find matching individuals and their indices
+                                const matchingIndices = [];
+                                const colors = individuals.map((ind, idx) => {
+                                    const matches = Object.values(ind.categories).includes(categoryLabel);
+                                    if (matches) matchingIndices.push(idx);
+                                    // Keep original color but adjust opacity
+                                    const baseColor = getColorForPoint(ind.originalX, ind.originalY);
+                                    return matches ? baseColor : baseColor.replace(/[\d.]+\)$/, '0.05)');
+                                });
+                                const borderColors = individuals.map(ind => {
+                                    const matches = Object.values(ind.categories).includes(categoryLabel);
+                                    const baseBorder = getBorderColorForPoint(ind.originalX, ind.originalY);
+                                    return matches ? baseBorder : baseBorder.replace('rgb', 'rgba').replace(')', ', 0.1)');
+                                });
+
+                                // Store hovered category point for line drawing
+                                hoveredCategoryPoint1 = {
+                                    x: categoryPoint.x,
+                                    y: categoryPoint.y,
+                                    matches: matchingIndices
+                                };
+                                hoveredIndividual1 = null;
+
+                                chart1Instance.data.datasets[0].backgroundColor = colors;
+                                chart1Instance.data.datasets[0].borderColor = borderColors;
+
+                                // Force the hovered category label to show (along with default visible)
+                                hoveredCategoryLabelsToShow1.clear();
+                                hoveredCategoryLabelsToShow1.add(hoveredCategoryIndex);
+                                visibleLabelIndices1.forEach(idx => hoveredCategoryLabelsToShow1.add(idx));
+
+                                chart1Instance.update('none');
+                            }
+                        } else {
+                            // Reset to default when not hovering
+                            hoveredCategory1 = null;
+                            hoveredCategoryPoint1 = null;
+                            hoveredIndividual1 = null;
+                            hoveredCategoryLabelsToShow1.clear();  // Clear label overrides
+
+                            chart1Instance.data.datasets[0].backgroundColor = individuals.map(ind => {
+                                const color = getColorForPoint(ind.originalX, ind.originalY);
+                                return color.replace(/[\d.]+\)$/, '0.2)');
+                            });
+                            chart1Instance.data.datasets[0].borderColor = individuals.map(ind => {
+                                const color = getBorderColorForPoint(ind.originalX, ind.originalY);
+                                return color.replace('rgb', 'rgba').replace(')', ', 0.4)');
+                            });
+
+                            // Reset category colors and borders
+                            chart1Instance.data.datasets[1].backgroundColor = rawData.map(d => getColorForPoint(d.x, d.y));
+                            chart1Instance.data.datasets[1].borderColor = rawData.map(d => getBorderColorForPoint(d.x, d.y));
+                            chart1Instance.data.datasets[1].borderWidth = 1.5;
+
+                            chart1Instance.update('none');
+                        }
+                    },
+                    scales: {
+                        x: {
+                            title: {
+                                display: true,
+                                text: 'AGI Likely Within 10 Years →',
+                                font: { size: 12, weight: 'bold', family: 'Times New Roman' }
+                            },
+                            min: 0.85,
+                            max: 5.15,
+                            ticks: {
+                                stepSize: 1,
+                                autoSkip: false,
+                                callback: function(value) {
+                                    // Only show integer ticks from 1-5
+                                    if (Number.isInteger(value) && value >= 1 && value <= 5) {
+                                        return value;
+                                    }
+                                    return null;  // Hide non-integer or out-of-range ticks
+                                }
+                            },
+                            grid: {
+                                color: function(context) {
+                                    return context.tick.value === 3 ? 'rgba(0, 0, 0, 0.3)' : 'rgba(0, 0, 0, 0.1)';
+                                },
+                                lineWidth: function(context) {
+                                    return context.tick.value === 3 ? 2 : 1;
+                                }
+                            }
+                        },
+                        y: {
+                            title: {
+                                display: true,
+                                text: '← Prioritize AI Safety (Inverted)',
+                                font: { size: 12, weight: 'bold', family: 'Times New Roman' }
+                            },
+                            min: 0.85,
+                            max: 5.15,
+                            ticks: {
+                                stepSize: 1,
+                                callback: function(value) {
+                                    return 6 - value;
+                                }
+                            },
+                            grid: {
+                                color: function(context) {
+                                    return context.tick.value === 3 ? 'rgba(0, 0, 0, 0.3)' : 'rgba(0, 0, 0, 0.1)';
+                                },
+                                lineWidth: function(context) {
+                                    return context.tick.value === 3 ? 2 : 1;
+                                }
+                            }
+                        }
+                    }
+                },
+                plugins: [ChartDataLabels, connectionLinesPlugin]
+            });
+        }
+
+        function createCompassChart2() {
+            const canvas = document.getElementById('compassChart2');
+            const ctx = canvas.getContext('2d');
+
+            let allData = [
+                ...processedData2.dinner,
+                ...processedData2.workplace,
+                ...processedData2.podcast
+            ];
+
+            const minVal = 1;
+            const maxVal = 5;
+
+            calculateVisibleLabels(allData, visibleLabelIndices2);
+
+            // Process individual respondents for second compass
+            const individuals = processIndividualRespondents(
+                'I’d rather build a working prototype than write a perfect paper.',
+                'I believe creativity is more important than rigor in research.',
+                [
+                    {col: 'Who would you most want to have dinner with?'},
+                    {col: 'I would most want to work at:'},
+                    {col: 'What is your favorite ML related podcast?'}
+                ]
+            );
+
+            // Create individual points dataset
+            const individualDataset = {
+                label: 'Individual Respondents',
+                data: individuals.map(ind => ({
+                    x: ind.x,
+                    y: ind.y,  // No inversion for second chart
+                    categories: ind.categories,
+                    respondentId: ind.respondentId,
+                    originalX: ind.originalX,
+                    originalY: ind.originalY
+                })),
+                backgroundColor: individuals.map((ind, idx) => {
+                    // Color based on coordinates with reduced opacity
+                    const color = getColorForPoint(ind.originalX, ind.originalY);
+                    // Highlight if in highlighted set (user + KNN)
+                    if (highlightedIndices.has(ind.respondentId)) {
+                        return color.replace(/[\d.]+\)$/, '1.0)');  // Full opacity for highlighted
+                    }
+                    return color.replace(/[\d.]+\)$/, '0.2)');  // Normal opacity
+                }),
+                borderColor: individuals.map((ind, idx) => {
+                    const color = getBorderColorForPoint(ind.originalX, ind.originalY);
+                    // Bright border if highlighted
+                    if (highlightedIndices.has(ind.respondentId)) {
+                        return 'rgba(255, 215, 0, 1)';  // Gold border
+                    }
+                    return color.replace('rgb', 'rgba').replace(')', ', 0.4)');
+                }),
+                borderWidth: individuals.map((ind, idx) => {
+                    return highlightedIndices.has(ind.respondentId) ? 2 : 0.5;
+                }),
+                pointRadius: individuals.map((ind, idx) => {
+                    return highlightedIndices.has(ind.respondentId) ? 4 : 2;
+                }),
+                pointHoverRadius: 3,  // Slightly larger on hover
+                pointStyle: 'circle',
+                hitRadius: 3,  // Small hit area for individual points
+                order: 2,  // Draw individual points first (behind categories)
+                datalabels: {
+                    display: false
+                }
+            };
+
+            // Create category averages dataset
+            const categoryDataset = {
+                label: 'Category Averages',
+                order: 1,  // Draw category points last (on top of individuals)
+                data: allData.map(d => ({
+                    x: d.x,
+                    y: d.y,  // Use regular Y, not inverted
+                    label: d.label,
+                    count: d.count,
+                    xVal: d.x,
+                    yVal: d.y,
+                    categoryLabel: d.label
+                })),
+                backgroundColor: allData.map(d => getColorForPoint(d.x, d.y)),
+                borderColor: allData.map(d => getBorderColorForPoint(d.x, d.y)),
+                borderWidth: 1.5,
+                pointRadius: allData.map(d => Math.max(4, Math.sqrt(d.count) * 1.2)),
+                pointHoverRadius: allData.map(d => Math.max(4, Math.sqrt(d.count) * 1.2)),
+                pointHoverBackgroundColor: allData.map(d => getHoverColorForPoint(d.x, d.y)),
+                pointHoverBorderColor: allData.map(d => getBorderColorForPoint(d.x, d.y)),
+                pointHoverBorderWidth: 2.5,
+            };
+
+            chart2Instance = new Chart(ctx, {
+                type: 'scatter',
+                data: { datasets: [individualDataset, categoryDataset] },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: true,
+                    aspectRatio: 1,
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    const point = context.raw;
+                                    return [
+                                        `${point.label}`,
+                                        `Prototype vs Paper: ${point.xVal.toFixed(2)}/5`,
+                                        `Creativity vs Rigor: ${point.yVal.toFixed(2)}/5`,
+                                        `Responses: ${point.count}`
+                                    ];
+                                }
+                            }
+                        },
+                        datalabels: {
+                            display: function(context) {
+                                // Show if: hovered, in default visible set, or in hover-forced set
+                                if (hoveredCategoryLabelsToShow2.size > 0) {
+                                    return hoveredCategoryLabelsToShow2.has(context.dataIndex);
+                                }
+                                return context.hovered || visibleLabelIndices2.has(context.dataIndex);
+                            },
+                            align: function(context) {
+                                const point = context.dataset.data[context.dataIndex];
+                                const mid = (minVal + maxVal) / 2;
+                                if (point.x > mid && point.y < mid) return 'right';
+                                if (point.x < mid && point.y < mid) return 'left';
+                                if (point.x > mid && point.y > mid) return 'right';
+                                return 'left';
+                            },
+                            offset: 6,
+                            color: '#000',
+                            font: { size: 9, weight: '600', family: 'Arial, sans-serif' },
+                            formatter: function(value) {
+                                const label = value.label;
+                                return label.length > 18 ? label.substring(0, 16) + '...' : label;
+                            },
+                            backgroundColor: 'rgba(255, 255, 255, 0.95)',
+                            borderColor: function(context) {
+                                return context.hovered ? '#000' : '#999';
+                            },
+                            borderWidth: 1,
+                            borderRadius: 3,
+                            padding: 4
+                        }
+                    },
+                    onHover: function(event, activeElements) {
+                        if (activeElements.length > 0) {
+                            const element = activeElements[0];
+                            const datasetIndex = element.datasetIndex;
+                            const dataIndex = element.index;
+
+                            // Handle individual point hover (dataset index 0)
+                            if (datasetIndex === 0) {
+                                const individual = individuals[dataIndex];
+
+                                // Find which category points match this individual's choices
+                                const categoryIndices = [];
+                                allData.forEach((cat, idx) => {
+                                    if (Object.values(individual.categories).includes(cat.label)) {
+                                        categoryIndices.push(idx);
+                                    }
+                                });
+
+                                // Store for line drawing
+                                hoveredIndividual2 = {
+                                    x: individual.x,
+                                    y: individual.y,  // No inversion for second chart
+                                    categoryIndices: categoryIndices
+                                };
+                                hoveredCategoryPoint2 = null;
+                                hoveredCategory2 = null;
+
+                                // Dim all category points except the ones this individual chose
+                                const categoryColors = allData.map((d, idx) => {
+                                    const baseColor = getColorForPoint(d.x, d.y);
+                                    const isMatch = categoryIndices.includes(idx);
+                                    // Keep base color, just reduce opacity for non-matches
+                                    return isMatch ? baseColor : baseColor.replace(/[\d.]+\)$/, '0.15)');
+                                });
+
+                                // Add bright border to matching categories
+                                const categoryBorders = allData.map((d, idx) => {
+                                    const isMatch = categoryIndices.includes(idx);
+                                    return isMatch ? 'rgba(255, 215, 0, 1)' : getBorderColorForPoint(d.x, d.y);
+                                });
+
+                                const categoryBorderWidths = allData.map((d, idx) => {
+                                    return categoryIndices.includes(idx) ? 3 : 1.5;
+                                });
+
+                                chart2Instance.data.datasets[1].backgroundColor = categoryColors;
+                                chart2Instance.data.datasets[1].borderColor = categoryBorders;
+                                chart2Instance.data.datasets[1].borderWidth = categoryBorderWidths;
+
+                                // Force labels to show ONLY for matching categories
+                                hoveredCategoryLabelsToShow2.clear();
+                                categoryIndices.forEach(idx => hoveredCategoryLabelsToShow2.add(idx));
+
+                                chart2Instance.update('none');
+                            }
+                            // Handle category point hover (dataset index 1)
+                            else if (datasetIndex === 1) {
+                                const categoryLabel = categoryDataset.data[dataIndex].categoryLabel;
+                                const hoveredCategoryIndex = dataIndex;
+
+                                // Skip if already hovering this category
+                                if (hoveredCategory2 === categoryLabel) return;
+                                hoveredCategory2 = categoryLabel;
+
+                                const categoryPoint = categoryDataset.data[dataIndex];
+
+                                // Find matching individuals and their indices
+                                const matchingIndices = [];
+                                const colors = individuals.map((ind, idx) => {
+                                    const matches = Object.values(ind.categories).includes(categoryLabel);
+                                    if (matches) matchingIndices.push(idx);
+                                    // Keep original color but adjust opacity
+                                    const baseColor = getColorForPoint(ind.originalX, ind.originalY);
+                                    return matches ? baseColor : baseColor.replace(/[\d.]+\)$/, '0.05)');
+                                });
+                                const borderColors = individuals.map(ind => {
+                                    const matches = Object.values(ind.categories).includes(categoryLabel);
+                                    const baseBorder = getBorderColorForPoint(ind.originalX, ind.originalY);
+                                    return matches ? baseBorder : baseBorder.replace('rgb', 'rgba').replace(')', ', 0.1)');
+                                });
+
+                                // Store hovered category point for line drawing
+                                hoveredCategoryPoint2 = {
+                                    x: categoryPoint.x,
+                                    y: categoryPoint.y,
+                                    matches: matchingIndices
+                                };
+                                hoveredIndividual2 = null;
+
+                                chart2Instance.data.datasets[0].backgroundColor = colors;
+                                chart2Instance.data.datasets[0].borderColor = borderColors;
+
+                                // Force the hovered category label to show (along with default visible)
+                                hoveredCategoryLabelsToShow2.clear();
+                                hoveredCategoryLabelsToShow2.add(hoveredCategoryIndex);
+                                visibleLabelIndices2.forEach(idx => hoveredCategoryLabelsToShow2.add(idx));
+
+                                chart2Instance.update('none');
+                            }
+                        } else {
+                            // Reset to default when not hovering
+                            hoveredCategory2 = null;
+                            hoveredCategoryPoint2 = null;
+                            hoveredIndividual2 = null;
+                            hoveredCategoryLabelsToShow2.clear();  // Clear label overrides
+
+                            chart2Instance.data.datasets[0].backgroundColor = individuals.map(ind => {
+                                const color = getColorForPoint(ind.originalX, ind.originalY);
+                                return color.replace(/[\d.]+\)$/, '0.2)');
+                            });
+                            chart2Instance.data.datasets[0].borderColor = individuals.map(ind => {
+                                const color = getBorderColorForPoint(ind.originalX, ind.originalY);
+                                return color.replace('rgb', 'rgba').replace(')', ', 0.4)');
+                            });
+
+                            // Reset category colors and borders
+                            chart2Instance.data.datasets[1].backgroundColor = allData.map(d => getColorForPoint(d.x, d.y));
+                            chart2Instance.data.datasets[1].borderColor = allData.map(d => getBorderColorForPoint(d.x, d.y));
+                            chart2Instance.data.datasets[1].borderWidth = 1.5;
+
+                            chart2Instance.update('none');
+                        }
+                    },
+                    scales: {
+                        x: {
+                            title: {
+                                display: true,
+                                text: 'Prefer Prototypes Over Papers →',
+                                font: { size: 12, weight: 'bold', family: 'Times New Roman' }
+                            },
+                            min: 0.85,
+                            max: 5.15,
+                            ticks: {
+                                stepSize: 1,
+                                autoSkip: false,
+                                callback: function(value) {
+                                    // Only show integer ticks from 1-5
+                                    if (Number.isInteger(value) && value >= 1 && value <= 5) {
+                                        return value;
+                                    }
+                                    return null;  // Hide non-integer or out-of-range ticks
+                                }
+                            },
+                            grid: {
+                                color: function(context) {
+                                    return context.tick.value === 3 ? 'rgba(0, 0, 0, 0.3)' : 'rgba(0, 0, 0, 0.1)';
+                                },
+                                lineWidth: function(context) {
+                                    return context.tick.value === 3 ? 2 : 1;
+                                }
+                            }
+                        },
+                        y: {
+                            title: {
+                                display: true,
+                                text: 'Creativity Over Rigor →',
+                                font: { size: 12, weight: 'bold', family: 'Times New Roman' }
+                            },
+                            min: 0.85,
+                            max: 5.15,
+                            ticks: {
+                                stepSize: 1
+                            },
+                            grid: {
+                                color: function(context) {
+                                    return context.tick.value === 3 ? 'rgba(0, 0, 0, 0.3)' : 'rgba(0, 0, 0, 0.1)';
+                                },
+                                lineWidth: function(context) {
+                                    return context.tick.value === 3 ? 2 : 1;
+                                }
+                            }
+                        }
+                    }
+                },
+                plugins: [ChartDataLabels, connectionLinesPlugin]
+            });
+        }
+
+        function createPieCharts() {
+            // Dinner pie chart
+            const dinnerCounts = {};
+            surveyData.forEach(row => {
+                const value = row['Who would you most want to have dinner with?'];
+                if (value && value.trim() !== '') {
+                    dinnerCounts[value] = (dinnerCounts[value] || 0) + 1;
+                }
+            });
+            const dinnerEntries = Object.entries(dinnerCounts).sort((a, b) => b[1] - a[1]).slice(0, 10);
+
+            new Chart(document.getElementById('dinnerPieChart'), {
+                type: 'pie',
+                data: {
+                    labels: dinnerEntries.map(d => d[0]),
+                    datasets: [{
+                        data: dinnerEntries.map(d => d[1]),
+                        backgroundColor: generateColors(dinnerEntries.length)
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: true,
+                    plugins: {
+                        legend: {
+                            display: false
+                        },
+                        datalabels: {
+                            color: '#000',
+                            font: {
+                                size: 9,
+                                weight: 'bold'
+                            },
+                            formatter: function(value, context) {
+                                const label = context.chart.data.labels[context.dataIndex];
+                                const total = context.dataset.data.reduce((a, b) => a + b, 0);
+                                const percentage = ((value / total) * 100).toFixed(0);
+                                if (percentage < 5) return '';  // Hide small slices
+                                return label + '\n' + percentage + '%';
+                            },
+                            align: 'start',
+                            anchor: 'end',
+                            offset: 4,
+                            backgroundColor: 'rgba(255, 255, 255, 0.9)',
+                            borderRadius: 3,
+                            padding: 3,
+                            clamp: true
+                        }
+                    }
+                },
+                plugins: [ChartDataLabels]
+            });
+
+            // Workplace pie chart
+            const workplaceCounts = {};
+            surveyData.forEach(row => {
+                const value = row['I would most want to work at:'];
+                if (value && value.trim() !== '') {
+                    workplaceCounts[value] = (workplaceCounts[value] || 0) + 1;
+                }
+            });
+            const workplaceEntries = Object.entries(workplaceCounts).sort((a, b) => b[1] - a[1]);
+
+            new Chart(document.getElementById('workplacePieChart'), {
+                type: 'pie',
+                data: {
+                    labels: workplaceEntries.map(d => d[0]),
+                    datasets: [{
+                        data: workplaceEntries.map(d => d[1]),
+                        backgroundColor: generateColors(workplaceEntries.length)
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: true,
+                    plugins: {
+                        legend: {
+                            display: false
+                        },
+                        datalabels: {
+                            color: '#000',
+                            font: {
+                                size: 9,
+                                weight: 'bold'
+                            },
+                            formatter: function(value, context) {
+                                const label = context.chart.data.labels[context.dataIndex];
+                                const total = context.dataset.data.reduce((a, b) => a + b, 0);
+                                const percentage = ((value / total) * 100).toFixed(0);
+                                if (percentage < 5) return '';  // Hide small slices
+                                return label + '\n' + percentage + '%';
+                            },
+                            align: 'start',
+                            anchor: 'end',
+                            offset: 4,
+                            backgroundColor: 'rgba(255, 255, 255, 0.9)',
+                            borderRadius: 3,
+                            padding: 3,
+                            clamp: true
+                        }
+                    }
+                },
+                plugins: [ChartDataLabels]
+            });
+
+            // Podcast pie chart
+            const podcastCounts = {};
+            surveyData.forEach(row => {
+                const value = row['What is your favorite ML related podcast?'];
+                if (value && value.trim() !== '') {
+                    podcastCounts[value] = (podcastCounts[value] || 0) + 1;
+                }
+            });
+            const podcastEntries = Object.entries(podcastCounts).sort((a, b) => b[1] - a[1]).slice(0, 10);
+
+            new Chart(document.getElementById('podcastPieChart'), {
+                type: 'pie',
+                data: {
+                    labels: podcastEntries.map(d => d[0]),
+                    datasets: [{
+                        data: podcastEntries.map(d => d[1]),
+                        backgroundColor: generateColors(podcastEntries.length)
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: true,
+                    plugins: {
+                        legend: {
+                            display: false
+                        },
+                        datalabels: {
+                            color: '#000',
+                            font: {
+                                size: 9,
+                                weight: 'bold'
+                            },
+                            formatter: function(value, context) {
+                                const label = context.chart.data.labels[context.dataIndex];
+                                const total = context.dataset.data.reduce((a, b) => a + b, 0);
+                                const percentage = ((value / total) * 100).toFixed(0);
+                                if (percentage < 5) return '';  // Hide small slices
+                                return label + '\n' + percentage + '%';
+                            },
+                            align: 'start',
+                            anchor: 'end',
+                            offset: 4,
+                            backgroundColor: 'rgba(255, 255, 255, 0.9)',
+                            borderRadius: 3,
+                            padding: 3,
+                            clamp: true
+                        }
+                    }
+                },
+                plugins: [ChartDataLabels]
+            });
+        }
+
+        function generateColors(count) {
+            const colors = [];
+            for (let i = 0; i < count; i++) {
+                const hue = (i * 360 / count) % 360;
+                colors.push(`hsl(${hue}, 60%, 60%)`);
+            }
+            return colors;
+        }
+
+        // Create UMAP clustering chart
+        function createUMAPChart() {
+            const canvas = document.getElementById('umapChart');
+            const ctx = canvas.getContext('2d');
+
+            // Prepare data: match groups with survey data by UUID
+            const umapPoints = groupsData.map(group => {
+                const surveyRow = surveyData.find(row => row.UUID === group.UUID);
+                return {
+                    x: parseFloat(group.X),
+                    y: parseFloat(group.Y),
+                    uuid: group.UUID,
+                    surveyData: surveyRow || {},
+                    cluster: group.Cluster_ID,
+                    groupId: group.Optimized_Group_ID
+                };
+            }).filter(p => !isNaN(p.x) && !isNaN(p.y));
+
+            window.umapChartInstance = new Chart(ctx, {
+                type: 'scatter',
+                data: {
+                    datasets: [{
+                        label: 'UMAP Respondents',
+                        data: umapPoints,
+                        backgroundColor: umapPoints.map(p => 'rgba(100, 150, 200, 0.5)'),
+                        borderColor: umapPoints.map(p => 'rgba(100, 150, 200, 0.8)'),
+                        borderWidth: 1,
+                        pointRadius: 4,
+                        pointHoverRadius: 6
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: true,
+                    aspectRatio: 1,
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    const point = context.raw;
+                                    return [
+                                        `Cluster: ${point.cluster}`,
+                                        `Group: ${point.groupId}`,
+                                        `Position: (${point.x.toFixed(2)}, ${point.y.toFixed(2)})`
+                                    ];
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        x: {
+                            title: {
+                                display: true,
+                                text: 'UMAP Dimension 1',
+                                font: { size: 12, weight: 'bold' }
+                            },
+                            grid: { color: 'rgba(0, 0, 0, 0.1)' }
+                        },
+                        y: {
+                            title: {
+                                display: true,
+                                text: 'UMAP Dimension 2',
+                                font: { size: 12, weight: 'bold' }
+                            },
+                            grid: { color: 'rgba(0, 0, 0, 0.1)' }
+                        }
+                    }
+                }
+            });
+        }
+
+        // Update UMAP highlighting
+        // Store current UMAP coloring state
+        let currentUMAPQuestion = null;
+        let currentUMAPIsLikert = false;
+        let currentUMAPColorMap = null;
+
+        function updateUMAPHighlighting() {
+            if (!window.umapChartInstance) return;
+
+            const points = window.umapChartInstance.data.datasets[0].data;
+            const uuidsSet = new Set(Array.from(highlightedIndices).map(idx => surveyData[idx].UUID));
+            const hasHighlighting = uuidsSet.size > 0;
+            const hasQuestionColoring = currentUMAPQuestion !== null;
+
+            // Apply question-based coloring with highlighting overlay
+            window.umapChartInstance.data.datasets[0].backgroundColor = points.map(p => {
+                const isHighlighted = uuidsSet.has(p.uuid);
+
+                if (isHighlighted) {
+                    return 'rgba(255, 215, 0, 1)'; // Gold for highlighted
+                }
+
+                if (hasQuestionColoring) {
+                    // Use question-based color with reduced opacity if highlighting is active
+                    if (currentUMAPIsLikert) {
+                        const value = parseFloat(p.surveyData[currentUMAPQuestion]);
+                        if (isNaN(value)) return 'rgba(200, 200, 200, 0.5)';
+                        const color = getColorForPoint(0, value);
+                        // Reduce opacity if highlighting is active
+                        return hasHighlighting ? color.replace(/[\d.]+\)$/, '0.3)') : color;
+                    } else {
+                        const answer = p.surveyData[currentUMAPQuestion];
+                        const color = currentUMAPColorMap[answer] || 'rgba(200, 200, 200, 0.5)';
+                        // Reduce opacity if highlighting is active
+                        return hasHighlighting ? color.replace('0.7)', '0.3)') : color;
+                    }
+                }
+
+                // No question coloring - use default blue
+                return hasHighlighting ? 'rgba(100, 150, 200, 0.3)' : 'rgba(100, 150, 200, 0.6)';
+            });
+
+            window.umapChartInstance.data.datasets[0].borderColor = points.map(p => {
+                const isHighlighted = uuidsSet.has(p.uuid);
+
+                if (isHighlighted) {
+                    return 'rgba(255, 180, 0, 1)'; // Gold border for highlighted
+                }
+
+                if (hasQuestionColoring) {
+                    if (currentUMAPIsLikert) {
+                        const value = parseFloat(p.surveyData[currentUMAPQuestion]);
+                        if (isNaN(value)) return 'rgba(200, 200, 200, 0.8)';
+                        const color = getBorderColorForPoint(0, value);
+                        return hasHighlighting ? color.replace(/[\d.]+\)$/, '0.5)') : color;
+                    } else {
+                        const answer = p.surveyData[currentUMAPQuestion];
+                        if (!answer) return 'rgba(200, 200, 200, 0.8)';
+                        const color = currentUMAPColorMap[answer] || 'rgba(200, 200, 200, 0.8)';
+                        const borderColor = color.replace('0.7)', '1)');
+                        return hasHighlighting ? borderColor.replace('1)', '0.6)') : borderColor;
+                    }
+                }
+
+                return 'rgba(100, 150, 200, 0.8)';
+            });
+
+            window.umapChartInstance.data.datasets[0].pointRadius = points.map(p => {
+                return uuidsSet.has(p.uuid) ? 7 : 4;
+            });
+
+            window.umapChartInstance.data.datasets[0].borderWidth = points.map(p => {
+                return uuidsSet.has(p.uuid) ? 3 : 1;
+            });
+
+            window.umapChartInstance.update('none');
+        }
+
+        // Populate question selector dropdown
+        function populateQuestionSelector() {
+            const selector = document.getElementById('questionSelector');
+            if (!surveyData || surveyData.length === 0) return;
+
+            // Get all column names except UUID and Timestamp
+            const columns = Object.keys(surveyData[0]).filter(col =>
+                col !== 'UUID' && col !== 'Timestamp' && col.trim() !== ''
+            );
+
+            columns.forEach(col => {
+                const option = document.createElement('option');
+                option.value = col;
+                option.textContent = col.length > 80 ? col.substring(0, 77) + '...' : col;
+                selector.appendChild(option);
+            });
+
+            // Handle selection changes
+            selector.addEventListener('change', function() {
+                updateUMAPColoring(this.value);
+            });
+        }
+
+        // Update UMAP colors based on selected question
+        function updateUMAPColoring(question) {
+            if (!window.umapChartInstance) return;
+
+            // Store the coloring state
+            currentUMAPQuestion = question;
+
+            if (!question) {
+                // Reset to default coloring
+                currentUMAPIsLikert = false;
+                currentUMAPColorMap = null;
+                updateUMAPHighlighting(); // This will apply default colors
+                updateUMAPLegend(null, false, null);
+                return;
+            }
+
+            const points = window.umapChartInstance.data.datasets[0].data;
+            const answers = points.map(p => p.surveyData[question]);
+
+            // Determine if question is Likert (numeric 1-5) or categorical
+            // Filter out null/undefined/empty values before checking
+            const validAnswers = answers.filter(a => a !== null && a !== undefined && a !== '');
+            const isLikert = validAnswers.length > 0 && validAnswers.every(a => {
+                const val = parseFloat(a);
+                return !isNaN(val) && val >= 1 && val <= 5;
+            });
+
+            // Store coloring state
+            currentUMAPIsLikert = isLikert;
+
+            if (isLikert) {
+                // Likert: we'll apply colors in updateUMAPHighlighting
+                currentUMAPColorMap = null;
+            } else {
+                // Color by category - create color map with better contrast
+                const uniqueAnswers = [...new Set(answers.filter(a => a))];
+                currentUMAPColorMap = {};
+
+                uniqueAnswers.forEach((answer, idx) => {
+                    // Use varied hue, high saturation, and alternating lightness for better distinction
+                    const hue = (idx * 360 / uniqueAnswers.length) % 360;
+                    const saturation = 70 + (idx % 2) * 15; // 70% or 85%
+                    const lightness = 45 + (idx % 3) * 10;  // 45%, 55%, or 65%
+                    currentUMAPColorMap[answer] = `hsla(${hue}, ${saturation}%, ${lightness}%, 0.7)`;
+                });
+            }
+
+            // Apply colors (updateUMAPHighlighting handles both coloring and highlighting)
+            updateUMAPHighlighting();
+            updateUMAPLegend(question, isLikert, currentUMAPColorMap);
+        }
+
+        // Update UMAP chart legend
+        function updateUMAPLegend(question, isLikert, colorMap) {
+            const legendDiv = document.getElementById('umapLegend');
+
+            if (!question) {
+                legendDiv.style.display = 'none';
+                return;
+            }
+
+            legendDiv.style.display = 'block';
+
+            if (isLikert) {
+                // Show gradient for Likert scale
+                legendDiv.innerHTML = `
+                    <div style="font-weight: 600; margin-bottom: 8px; font-size: 14px;">Legend:</div>
+                    <div style="display: flex; align-items: center; gap: 15px;">
+                        <div style="display: flex; align-items: center; gap: 8px;">
+                            <div style="width: 200px; height: 20px; background: linear-gradient(to right,
+                                rgb(33, 102, 172),
+                                rgb(103, 169, 207),
+                                rgb(209, 229, 240),
+                                rgb(253, 219, 199),
+                                rgb(239, 138, 98),
+                                rgb(178, 24, 43));
+                                border: 1px solid #ccc; border-radius: 3px;"></div>
+                        </div>
+                        <div style="display: flex; justify-content: space-between; width: 200px; font-size: 12px;">
+                            <span>1 (Strongly Disagree)</span>
+                            <span>5 (Strongly Agree)</span>
+                        </div>
+                        <div style="display: flex; align-items: center; gap: 5px; margin-left: 15px;">
+                            <div style="width: 16px; height: 16px; background: rgba(200, 200, 200, 0.5); border: 1px solid #999; border-radius: 2px;"></div>
+                            <span style="font-size: 12px;">No response</span>
+                        </div>
+                    </div>
+                `;
+            } else {
+                // Show categorical legend
+                const entries = Object.entries(colorMap).slice(0, 15); // Limit to 15 for display
+                const hasMore = Object.keys(colorMap).length > 15;
+
+                let html = '<div style="font-weight: 600; margin-bottom: 8px; font-size: 14px;">Legend:</div>';
+                html += '<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 8px;">';
+
+                entries.forEach(([answer, color]) => {
+                    html += `
+                        <div style="display: flex; align-items: center; gap: 8px;">
+                            <div style="width: 16px; height: 16px; background: ${color}; border: 1px solid rgba(0,0,0,0.2); border-radius: 2px; flex-shrink: 0;"></div>
+                            <span style="font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="${answer}">${answer}</span>
+                        </div>
+                    `;
+                });
+
+                if (hasMore) {
+                    html += '<div style="font-size: 12px; color: #666; font-style: italic;">+ more categories...</div>';
+                }
+
+                html += '</div>';
+                legendDiv.innerHTML = html;
+            }
+        }
+
+        // Display responses for highlighted users
+        function displayHighlightedResponses() {
+            const section = document.getElementById('responsesSection');
+            const content = document.getElementById('responsesContent');
+
+            if (highlightedIndices.size === 0) {
+                section.style.display = 'none';
+                return;
+            }
+
+            section.style.display = 'block';
+
+            // Get the highlighted respondents
+            const highlighted = Array.from(highlightedIndices).map(idx => surveyData[idx]);
+
+            // Separate user from neighbors
+            const userUUID = currentUserUUID;
+            const user = highlighted.find(r => r.UUID === userUUID);
+            const neighbors = highlighted.filter(r => r.UUID !== userUUID);
+
+            let html = '<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px;">';
+
+            // Show user's responses
+            if (user) {
+                html += '<div style="background: white; padding: 15px; border-radius: 8px; border: 3px solid gold;">';
+                html += '<h3 style="margin-top: 0; color: goldenrod;">You</h3>';
+                html += formatResponses(user);
+                html += '</div>';
+            }
+
+            // Show neighbors' responses
+            neighbors.slice(0, 5).forEach((neighbor, idx) => {
+                html += '<div style="background: white; padding: 15px; border-radius: 8px; border: 1px solid #ddd;">';
+                html += `<h3 style="margin-top: 0; color: #666;">Neighbor ${idx + 1}</h3>`;
+                html += formatResponses(neighbor);
+                html += '</div>';
+            });
+
+            html += '</div>';
+            content.innerHTML = html;
+        }
+
+        // Format survey responses for display
+        function formatResponses(respondent) {
+            let html = '<div style="font-size: 13px; line-height: 1.6;">';
+
+            // Show key questions
+            const keyQuestions = [
+                'Who would you most want to have dinner with?',
+                'I would most want to work at:',
+                'What is your favorite ML related podcast?',
+                'I believe AGI is likely within the next 10 years.',
+                'We should slow down AI progress until safety is better understood.',
+                'I\'d rather build a working prototype than write a perfect paper.',
+                'I believe creativity is more important than rigor in research.'
+            ];
+
+            keyQuestions.forEach(q => {
+                const answer = respondent[q];
+                if (answer) {
+                    html += `<div style="margin-bottom: 10px;">`;
+                    html += `<strong style="color: #555;">${q.substring(0, 60)}${q.length > 60 ? '...' : ''}</strong><br>`;
+                    html += `<span style="color: #333;">${answer}</span>`;
+                    html += `</div>`;
+                }
+            });
+
+            html += '</div>';
+            return html;
+        }
+    </script>
+</body>
+</html>
