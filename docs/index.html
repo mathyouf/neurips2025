@@ -482,6 +482,15 @@
             const knnSlider = document.getElementById('knnSlider');
             const knnValue = document.getElementById('knnValue');
 
+            // Check for UUID in URL parameters
+            const urlParams = new URLSearchParams(window.location.search);
+            const uuidFromURL = urlParams.get('uuid');
+            if (uuidFromURL) {
+                uuidInput.value = uuidFromURL;
+                currentUserUUID = uuidFromURL;
+                updateHighlighting();
+            }
+
             // Handle UUID input
             uuidInput.addEventListener('input', function() {
                 const uuid = this.value.trim();
