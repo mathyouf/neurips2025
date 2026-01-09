@@ -265,6 +265,36 @@
                     to highlight its respondents with connecting lines.
                 </div>
             </section>
+
+            <section class="section" id="responsesSection" style="display: none;">
+                <h2>Your Responses & Nearest Neighbors</h2>
+                <div id="responsesContent" style="background: #f8f9fa; padding: 15px; border-radius: 8px;">
+                    <!-- Will be populated dynamically -->
+                </div>
+            </section>
+
+            <section class="section">
+                <h2>3. UMAP Clustering Across All Questions</h2>
+                <p style="font-style: italic; color: #666; margin-bottom: 15px;">
+                    This visualization shows respondent similarity using UMAP dimensionality reduction across all survey questions.
+                    Categorical and open-ended responses were embedded using a text embedding model.
+                    Closer points indicate more similar overall response patterns.
+                </p>
+                <div style="margin-bottom: 15px;">
+                    <label for="questionSelector" style="font-weight: 600; margin-right: 10px;">Color by question:</label>
+                    <select id="questionSelector" style="padding: 5px 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px;">
+                        <option value="">-- Select a question --</option>
+                    </select>
+                </div>
+                <div class="chart-container">
+                    <canvas id="umapChart"></canvas>
+                </div>
+                <div class="figure-caption">
+                    <strong>Figure 3:</strong> UMAP projection of all survey responses showing natural clustering of similar researchers.
+                    Each point represents one respondent, positioned based on similarity across all questions.
+                    Use the dropdown above to color points by their answer to specific questions.
+                </div>
+            </section>
         </div>
 
         <footer>
@@ -437,6 +467,8 @@
                     groupsData = results.data;
                     console.log('Loaded groups data:', groupsData.length, 'entries');
                     setupUIEventListeners();
+                    createUMAPChart();
+                    populateQuestionSelector();
                 },
                 error: function(error) {
                     console.error('Error loading groups data:', error);
@@ -537,20 +569,77 @@
 
             // Update charts
             updateChartHighlighting();
+            displayHighlightedResponses();
         }
 
         // Clear highlighting
         function clearHighlighting() {
             highlightedIndices.clear();
             document.getElementById('userInfo').style.display = 'none';
+            document.getElementById('responsesSection').style.display = 'none';
             updateChartHighlighting();
         }
 
         // Update chart colors based on highlighted indices
         function updateChartHighlighting() {
-            if (chart1Instance && chart2Instance) {
-                chart1Instance.update('none');
-                chart2Instance.update('none');
+            if (!chart1Instance || !chart2Instance) return;
+
+            // Update chart 1
+            const individuals1 = chart1Instance.data.datasets[0].data;
+            chart1Instance.data.datasets[0].backgroundColor = individuals1.map((point, idx) => {
+                const ind = point;
+                const color = getColorForPoint(ind.originalX, ind.originalY);
+                if (highlightedIndices.has(ind.respondentId)) {
+                    return color.replace(/[\d.]+\)$/, '1.0)');
+                }
+                return color.replace(/[\d.]+\)$/, '0.2)');
+            });
+            chart1Instance.data.datasets[0].borderColor = individuals1.map((point, idx) => {
+                const ind = point;
+                const color = getBorderColorForPoint(ind.originalX, ind.originalY);
+                if (highlightedIndices.has(ind.respondentId)) {
+                    return 'rgba(255, 215, 0, 1)';
+                }
+                return color.replace('rgb', 'rgba').replace(')', ', 0.4)');
+            });
+            chart1Instance.data.datasets[0].borderWidth = individuals1.map((point, idx) => {
+                return highlightedIndices.has(point.respondentId) ? 2 : 0.5;
+            });
+            chart1Instance.data.datasets[0].pointRadius = individuals1.map((point, idx) => {
+                return highlightedIndices.has(point.respondentId) ? 4 : 2;
+            });
+
+            // Update chart 2
+            const individuals2 = chart2Instance.data.datasets[0].data;
+            chart2Instance.data.datasets[0].backgroundColor = individuals2.map((point, idx) => {
+                const ind = point;
+                const color = getColorForPoint(ind.originalX, ind.originalY);
+                if (highlightedIndices.has(ind.respondentId)) {
+                    return color.replace(/[\d.]+\)$/, '1.0)');
+                }
+                return color.replace(/[\d.]+\)$/, '0.2)');
+            });
+            chart2Instance.data.datasets[0].borderColor = individuals2.map((point, idx) => {
+                const ind = point;
+                const color = getBorderColorForPoint(ind.originalX, ind.originalY);
+                if (highlightedIndices.has(ind.respondentId)) {
+                    return 'rgba(255, 215, 0, 1)';
+                }
+                return color.replace('rgb', 'rgba').replace(')', ', 0.4)');
+            });
+            chart2Instance.data.datasets[0].borderWidth = individuals2.map((point, idx) => {
+                return highlightedIndices.has(point.respondentId) ? 2 : 0.5;
+            });
+            chart2Instance.data.datasets[0].pointRadius = individuals2.map((point, idx) => {
+                return highlightedIndices.has(point.respondentId) ? 4 : 2;
+            });
+
+            chart1Instance.update('none');
+            chart2Instance.update('none');
+
+            // Update UMAP chart if it exists
+            if (window.umapChartInstance) {
+                updateUMAPHighlighting();
             }
         }
 
@@ -1611,6 +1700,250 @@
                 colors.push(`hsl(${hue}, 60%, 60%)`);
             }
             return colors;
+        }
+
+        // Create UMAP clustering chart
+        function createUMAPChart() {
+            const canvas = document.getElementById('umapChart');
+            const ctx = canvas.getContext('2d');
+
+            // Prepare data: match groups with survey data by UUID
+            const umapPoints = groupsData.map(group => {
+                const surveyRow = surveyData.find(row => row.UUID === group.UUID);
+                return {
+                    x: parseFloat(group.X),
+                    y: parseFloat(group.Y),
+                    uuid: group.UUID,
+                    surveyData: surveyRow || {},
+                    cluster: group.Cluster_ID,
+                    groupId: group.Optimized_Group_ID
+                };
+            }).filter(p => !isNaN(p.x) && !isNaN(p.y));
+
+            window.umapChartInstance = new Chart(ctx, {
+                type: 'scatter',
+                data: {
+                    datasets: [{
+                        label: 'UMAP Respondents',
+                        data: umapPoints,
+                        backgroundColor: umapPoints.map(p => 'rgba(100, 150, 200, 0.5)'),
+                        borderColor: umapPoints.map(p => 'rgba(100, 150, 200, 0.8)'),
+                        borderWidth: 1,
+                        pointRadius: 4,
+                        pointHoverRadius: 6
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: true,
+                    aspectRatio: 1,
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    const point = context.raw;
+                                    return [
+                                        `Cluster: ${point.cluster}`,
+                                        `Group: ${point.groupId}`,
+                                        `Position: (${point.x.toFixed(2)}, ${point.y.toFixed(2)})`
+                                    ];
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        x: {
+                            title: {
+                                display: true,
+                                text: 'UMAP Dimension 1',
+                                font: { size: 12, weight: 'bold' }
+                            },
+                            grid: { color: 'rgba(0, 0, 0, 0.1)' }
+                        },
+                        y: {
+                            title: {
+                                display: true,
+                                text: 'UMAP Dimension 2',
+                                font: { size: 12, weight: 'bold' }
+                            },
+                            grid: { color: 'rgba(0, 0, 0, 0.1)' }
+                        }
+                    }
+                }
+            });
+        }
+
+        // Update UMAP highlighting
+        function updateUMAPHighlighting() {
+            if (!window.umapChartInstance) return;
+
+            const points = window.umapChartInstance.data.datasets[0].data;
+            const uuidsSet = new Set(Array.from(highlightedIndices).map(idx => surveyData[idx].UUID));
+
+            window.umapChartInstance.data.datasets[0].backgroundColor = points.map(p => {
+                if (uuidsSet.has(p.uuid)) {
+                    return 'rgba(255, 215, 0, 1)';
+                }
+                return 'rgba(100, 150, 200, 0.3)';
+            });
+            window.umapChartInstance.data.datasets[0].borderColor = points.map(p => {
+                if (uuidsSet.has(p.uuid)) {
+                    return 'rgba(255, 180, 0, 1)';
+                }
+                return 'rgba(100, 150, 200, 0.6)';
+            });
+            window.umapChartInstance.data.datasets[0].pointRadius = points.map(p => {
+                return uuidsSet.has(p.uuid) ? 6 : 4;
+            });
+
+            window.umapChartInstance.update('none');
+        }
+
+        // Populate question selector dropdown
+        function populateQuestionSelector() {
+            const selector = document.getElementById('questionSelector');
+            if (!surveyData || surveyData.length === 0) return;
+
+            // Get all column names except UUID and Timestamp
+            const columns = Object.keys(surveyData[0]).filter(col =>
+                col !== 'UUID' && col !== 'Timestamp' && col.trim() !== ''
+            );
+
+            columns.forEach(col => {
+                const option = document.createElement('option');
+                option.value = col;
+                option.textContent = col.length > 80 ? col.substring(0, 77) + '...' : col;
+                selector.appendChild(option);
+            });
+
+            // Handle selection changes
+            selector.addEventListener('change', function() {
+                updateUMAPColoring(this.value);
+            });
+        }
+
+        // Update UMAP colors based on selected question
+        function updateUMAPColoring(question) {
+            if (!window.umapChartInstance || !question) {
+                // Reset to default colors
+                if (window.umapChartInstance) {
+                    updateUMAPHighlighting();
+                }
+                return;
+            }
+
+            const points = window.umapChartInstance.data.datasets[0].data;
+            const answers = points.map(p => p.surveyData[question]);
+
+            // Determine if question is Likert (numeric 1-5) or categorical
+            const isLikert = answers.every(a => !isNaN(parseFloat(a)) && parseFloat(a) >= 1 && parseFloat(a) <= 5);
+
+            if (isLikert) {
+                // Color by Likert scale (blue to red)
+                window.umapChartInstance.data.datasets[0].backgroundColor = points.map(p => {
+                    const value = parseFloat(p.surveyData[question]);
+                    if (isNaN(value)) return 'rgba(200, 200, 200, 0.5)';
+                    return getColorForPoint(value, 3);  // Use existing color function
+                });
+                window.umapChartInstance.data.datasets[0].borderColor = points.map(p => {
+                    const value = parseFloat(p.surveyData[question]);
+                    if (isNaN(value)) return 'rgba(200, 200, 200, 0.8)';
+                    return getBorderColorForPoint(value, 3);
+                });
+            } else {
+                // Color by category
+                const uniqueAnswers = [...new Set(answers.filter(a => a))];
+                const colorMap = {};
+                uniqueAnswers.forEach((answer, idx) => {
+                    const hue = (idx * 360 / uniqueAnswers.length) % 360;
+                    colorMap[answer] = `hsla(${hue}, 60%, 60%, 0.7)`;
+                });
+
+                window.umapChartInstance.data.datasets[0].backgroundColor = points.map(p => {
+                    const answer = p.surveyData[question];
+                    return colorMap[answer] || 'rgba(200, 200, 200, 0.5)';
+                });
+                window.umapChartInstance.data.datasets[0].borderColor = points.map(p => {
+                    const answer = p.surveyData[question];
+                    if (!answer) return 'rgba(200, 200, 200, 0.8)';
+                    const color = colorMap[answer] || 'rgba(200, 200, 200, 0.8)';
+                    return color.replace('0.7)', '1)');
+                });
+            }
+
+            window.umapChartInstance.update('none');
+        }
+
+        // Display responses for highlighted users
+        function displayHighlightedResponses() {
+            const section = document.getElementById('responsesSection');
+            const content = document.getElementById('responsesContent');
+
+            if (highlightedIndices.size === 0) {
+                section.style.display = 'none';
+                return;
+            }
+
+            section.style.display = 'block';
+
+            // Get the highlighted respondents
+            const highlighted = Array.from(highlightedIndices).map(idx => surveyData[idx]);
+
+            // Separate user from neighbors
+            const userUUID = currentUserUUID;
+            const user = highlighted.find(r => r.UUID === userUUID);
+            const neighbors = highlighted.filter(r => r.UUID !== userUUID);
+
+            let html = '<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px;">';
+
+            // Show user's responses
+            if (user) {
+                html += '<div style="background: white; padding: 15px; border-radius: 8px; border: 3px solid gold;">';
+                html += '<h3 style="margin-top: 0; color: goldenrod;">You</h3>';
+                html += formatResponses(user);
+                html += '</div>';
+            }
+
+            // Show neighbors' responses
+            neighbors.slice(0, 5).forEach((neighbor, idx) => {
+                html += '<div style="background: white; padding: 15px; border-radius: 8px; border: 1px solid #ddd;">';
+                html += `<h3 style="margin-top: 0; color: #666;">Neighbor ${idx + 1}</h3>`;
+                html += formatResponses(neighbor);
+                html += '</div>';
+            });
+
+            html += '</div>';
+            content.innerHTML = html;
+        }
+
+        // Format survey responses for display
+        function formatResponses(respondent) {
+            let html = '<div style="font-size: 13px; line-height: 1.6;">';
+
+            // Show key questions
+            const keyQuestions = [
+                'Who would you most want to have dinner with?',
+                'I would most want to work at:',
+                'What is your favorite ML related podcast?',
+                'I believe AGI is likely within the next 10 years.',
+                'We should slow down AI progress until safety is better understood.',
+                'I\'d rather build a working prototype than write a perfect paper.',
+                'I believe creativity is more important than rigor in research.'
+            ];
+
+            keyQuestions.forEach(q => {
+                const answer = respondent[q];
+                if (answer) {
+                    html += `<div style="margin-bottom: 10px;">`;
+                    html += `<strong style="color: #555;">${q.substring(0, 60)}${q.length > 60 ? '...' : ''}</strong><br>`;
+                    html += `<span style="color: #333;">${answer}</span>`;
+                    html += `</div>`;
+                }
+            });
+
+            html += '</div>';
+            return html;
         }
     </script>
 </body>
