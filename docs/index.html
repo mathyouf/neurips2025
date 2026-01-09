@@ -1787,26 +1787,78 @@
         }
 
         // Update UMAP highlighting
+        // Store current UMAP coloring state
+        let currentUMAPQuestion = null;
+        let currentUMAPIsLikert = false;
+        let currentUMAPColorMap = null;
+
         function updateUMAPHighlighting() {
             if (!window.umapChartInstance) return;
 
             const points = window.umapChartInstance.data.datasets[0].data;
             const uuidsSet = new Set(Array.from(highlightedIndices).map(idx => surveyData[idx].UUID));
+            const hasHighlighting = uuidsSet.size > 0;
+            const hasQuestionColoring = currentUMAPQuestion !== null;
 
+            // Apply question-based coloring with highlighting overlay
             window.umapChartInstance.data.datasets[0].backgroundColor = points.map(p => {
-                if (uuidsSet.has(p.uuid)) {
-                    return 'rgba(255, 215, 0, 1)';
+                const isHighlighted = uuidsSet.has(p.uuid);
+
+                if (isHighlighted) {
+                    return 'rgba(255, 215, 0, 1)'; // Gold for highlighted
                 }
-                return 'rgba(100, 150, 200, 0.3)';
+
+                if (hasQuestionColoring) {
+                    // Use question-based color with reduced opacity if highlighting is active
+                    if (currentUMAPIsLikert) {
+                        const value = parseFloat(p.surveyData[currentUMAPQuestion]);
+                        if (isNaN(value)) return 'rgba(200, 200, 200, 0.5)';
+                        const color = getColorForPoint(0, value);
+                        // Reduce opacity if highlighting is active
+                        return hasHighlighting ? color.replace(/[\d.]+\)$/, '0.3)') : color;
+                    } else {
+                        const answer = p.surveyData[currentUMAPQuestion];
+                        const color = currentUMAPColorMap[answer] || 'rgba(200, 200, 200, 0.5)';
+                        // Reduce opacity if highlighting is active
+                        return hasHighlighting ? color.replace('0.7)', '0.3)') : color;
+                    }
+                }
+
+                // No question coloring - use default blue
+                return hasHighlighting ? 'rgba(100, 150, 200, 0.3)' : 'rgba(100, 150, 200, 0.6)';
             });
+
             window.umapChartInstance.data.datasets[0].borderColor = points.map(p => {
-                if (uuidsSet.has(p.uuid)) {
-                    return 'rgba(255, 180, 0, 1)';
+                const isHighlighted = uuidsSet.has(p.uuid);
+
+                if (isHighlighted) {
+                    return 'rgba(255, 180, 0, 1)'; // Gold border for highlighted
                 }
-                return 'rgba(100, 150, 200, 0.6)';
+
+                if (hasQuestionColoring) {
+                    if (currentUMAPIsLikert) {
+                        const value = parseFloat(p.surveyData[currentUMAPQuestion]);
+                        if (isNaN(value)) return 'rgba(200, 200, 200, 0.8)';
+                        const color = getBorderColorForPoint(0, value);
+                        return hasHighlighting ? color.replace(/[\d.]+\)$/, '0.5)') : color;
+                    } else {
+                        const answer = p.surveyData[currentUMAPQuestion];
+                        if (!answer) return 'rgba(200, 200, 200, 0.8)';
+                        const color = currentUMAPColorMap[answer] || 'rgba(200, 200, 200, 0.8)';
+                        const borderColor = color.replace('0.7)', '1)');
+                        return hasHighlighting ? borderColor.replace('1)', '0.6)') : borderColor;
+                    }
+                }
+
+                return 'rgba(100, 150, 200, 0.8)';
             });
+
             window.umapChartInstance.data.datasets[0].pointRadius = points.map(p => {
-                return uuidsSet.has(p.uuid) ? 6 : 4;
+                return uuidsSet.has(p.uuid) ? 7 : 4;
+            });
+
+            window.umapChartInstance.data.datasets[0].borderWidth = points.map(p => {
+                return uuidsSet.has(p.uuid) ? 3 : 1;
             });
 
             window.umapChartInstance.update('none');
@@ -1837,11 +1889,17 @@
 
         // Update UMAP colors based on selected question
         function updateUMAPColoring(question) {
-            if (!window.umapChartInstance || !question) {
-                // Reset to default colors
-                if (window.umapChartInstance) {
-                    updateUMAPHighlighting();
-                }
+            if (!window.umapChartInstance) return;
+
+            // Store the coloring state
+            currentUMAPQuestion = question;
+
+            if (!question) {
+                // Reset to default coloring
+                currentUMAPIsLikert = false;
+                currentUMAPColorMap = null;
+                updateUMAPHighlighting(); // This will apply default colors
+                updateUMAPLegend(null, false, null);
                 return;
             }
 
@@ -1856,43 +1914,29 @@
                 return !isNaN(val) && val >= 1 && val <= 5;
             });
 
-            let colorMap = null;
+            // Store coloring state
+            currentUMAPIsLikert = isLikert;
 
             if (isLikert) {
-                // Color by Likert scale (blue to red)
-                window.umapChartInstance.data.datasets[0].backgroundColor = points.map(p => {
-                    const value = parseFloat(p.surveyData[question]);
-                    if (isNaN(value)) return 'rgba(200, 200, 200, 0.5)';
-                    return getColorForPoint(value, 3);  // Use existing color function
-                });
-                window.umapChartInstance.data.datasets[0].borderColor = points.map(p => {
-                    const value = parseFloat(p.surveyData[question]);
-                    if (isNaN(value)) return 'rgba(200, 200, 200, 0.8)';
-                    return getBorderColorForPoint(value, 3);
-                });
+                // Likert: we'll apply colors in updateUMAPHighlighting
+                currentUMAPColorMap = null;
             } else {
-                // Color by category
+                // Color by category - create color map with better contrast
                 const uniqueAnswers = [...new Set(answers.filter(a => a))];
-                colorMap = {};
-                uniqueAnswers.forEach((answer, idx) => {
-                    const hue = (idx * 360 / uniqueAnswers.length) % 360;
-                    colorMap[answer] = `hsla(${hue}, 60%, 60%, 0.7)`;
-                });
+                currentUMAPColorMap = {};
 
-                window.umapChartInstance.data.datasets[0].backgroundColor = points.map(p => {
-                    const answer = p.surveyData[question];
-                    return colorMap[answer] || 'rgba(200, 200, 200, 0.5)';
-                });
-                window.umapChartInstance.data.datasets[0].borderColor = points.map(p => {
-                    const answer = p.surveyData[question];
-                    if (!answer) return 'rgba(200, 200, 200, 0.8)';
-                    const color = colorMap[answer] || 'rgba(200, 200, 200, 0.8)';
-                    return color.replace('0.7)', '1)');
+                uniqueAnswers.forEach((answer, idx) => {
+                    // Use varied hue, high saturation, and alternating lightness for better distinction
+                    const hue = (idx * 360 / uniqueAnswers.length) % 360;
+                    const saturation = 70 + (idx % 2) * 15; // 70% or 85%
+                    const lightness = 45 + (idx % 3) * 10;  // 45%, 55%, or 65%
+                    currentUMAPColorMap[answer] = `hsla(${hue}, ${saturation}%, ${lightness}%, 0.7)`;
                 });
             }
 
-            window.umapChartInstance.update('none');
-            updateUMAPLegend(question, isLikert, colorMap);
+            // Apply colors (updateUMAPHighlighting handles both coloring and highlighting)
+            updateUMAPHighlighting();
+            updateUMAPLegend(question, isLikert, currentUMAPColorMap);
         }
 
         // Update UMAP chart legend
