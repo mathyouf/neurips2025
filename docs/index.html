@@ -487,7 +487,7 @@
             // Calculate distances to all other points
             const distances = groupsData.map((group, idx) => ({
                 index: idx,
-                email: group.Email,
+                uuid: group.UUID,
                 distance: euclideanDistance(userX, userY, parseFloat(group.X), parseFloat(group.Y))
             }));
 
@@ -514,14 +514,14 @@
             // Find KNN
             const knn = findKNN(userGroupData, currentK);
 
-            // Find all emails to highlight (user + neighbors)
-            const emailsToHighlight = new Set([userGroupData.Email]);
-            knn.forEach(n => emailsToHighlight.add(n.email));
+            // Find all UUIDs to highlight (user + neighbors)
+            const uuidsToHighlight = new Set([userGroupData.UUID]);
+            knn.forEach(n => uuidsToHighlight.add(n.uuid));
 
-            // Map emails to survey data indices
+            // Map UUIDs to survey data indices
             highlightedIndices.clear();
             surveyData.forEach((row, idx) => {
-                if (emailsToHighlight.has(row['Email Address'])) {
+                if (uuidsToHighlight.has(row['UUID'])) {
                     highlightedIndices.add(idx);
                 }
             });
