@@ -286,6 +286,9 @@
                         <option value="">-- Select a question --</option>
                     </select>
                 </div>
+                <div id="umapLegend" style="margin-bottom: 15px; padding: 10px; background: #f9f9f9; border-radius: 4px; display: none;">
+                    <!-- Legend will be populated dynamically -->
+                </div>
                 <div class="chart-container">
                     <canvas id="umapChart"></canvas>
                 </div>
@@ -1846,7 +1849,14 @@
             const answers = points.map(p => p.surveyData[question]);
 
             // Determine if question is Likert (numeric 1-5) or categorical
-            const isLikert = answers.every(a => !isNaN(parseFloat(a)) && parseFloat(a) >= 1 && parseFloat(a) <= 5);
+            // Filter out null/undefined/empty values before checking
+            const validAnswers = answers.filter(a => a !== null && a !== undefined && a !== '');
+            const isLikert = validAnswers.length > 0 && validAnswers.every(a => {
+                const val = parseFloat(a);
+                return !isNaN(val) && val >= 1 && val <= 5;
+            });
+
+            let colorMap = null;
 
             if (isLikert) {
                 // Color by Likert scale (blue to red)
@@ -1863,7 +1873,7 @@
             } else {
                 // Color by category
                 const uniqueAnswers = [...new Set(answers.filter(a => a))];
-                const colorMap = {};
+                colorMap = {};
                 uniqueAnswers.forEach((answer, idx) => {
                     const hue = (idx * 360 / uniqueAnswers.length) % 360;
                     colorMap[answer] = `hsla(${hue}, 60%, 60%, 0.7)`;
@@ -1882,6 +1892,69 @@
             }
 
             window.umapChartInstance.update('none');
+            updateUMAPLegend(question, isLikert, colorMap);
+        }
+
+        // Update UMAP chart legend
+        function updateUMAPLegend(question, isLikert, colorMap) {
+            const legendDiv = document.getElementById('umapLegend');
+
+            if (!question) {
+                legendDiv.style.display = 'none';
+                return;
+            }
+
+            legendDiv.style.display = 'block';
+
+            if (isLikert) {
+                // Show gradient for Likert scale
+                legendDiv.innerHTML = `
+                    <div style="font-weight: 600; margin-bottom: 8px; font-size: 14px;">Legend:</div>
+                    <div style="display: flex; align-items: center; gap: 15px;">
+                        <div style="display: flex; align-items: center; gap: 8px;">
+                            <div style="width: 200px; height: 20px; background: linear-gradient(to right,
+                                rgb(33, 102, 172),
+                                rgb(103, 169, 207),
+                                rgb(209, 229, 240),
+                                rgb(253, 219, 199),
+                                rgb(239, 138, 98),
+                                rgb(178, 24, 43));
+                                border: 1px solid #ccc; border-radius: 3px;"></div>
+                        </div>
+                        <div style="display: flex; justify-content: space-between; width: 200px; font-size: 12px;">
+                            <span>1 (Strongly Disagree)</span>
+                            <span>5 (Strongly Agree)</span>
+                        </div>
+                        <div style="display: flex; align-items: center; gap: 5px; margin-left: 15px;">
+                            <div style="width: 16px; height: 16px; background: rgba(200, 200, 200, 0.5); border: 1px solid #999; border-radius: 2px;"></div>
+                            <span style="font-size: 12px;">No response</span>
+                        </div>
+                    </div>
+                `;
+            } else {
+                // Show categorical legend
+                const entries = Object.entries(colorMap).slice(0, 15); // Limit to 15 for display
+                const hasMore = Object.keys(colorMap).length > 15;
+
+                let html = '<div style="font-weight: 600; margin-bottom: 8px; font-size: 14px;">Legend:</div>';
+                html += '<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 8px;">';
+
+                entries.forEach(([answer, color]) => {
+                    html += `
+                        <div style="display: flex; align-items: center; gap: 8px;">
+                            <div style="width: 16px; height: 16px; background: ${color}; border: 1px solid rgba(0,0,0,0.2); border-radius: 2px; flex-shrink: 0;"></div>
+                            <span style="font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="${answer}">${answer}</span>
+                        </div>
+                    `;
+                });
+
+                if (hasMore) {
+                    html += '<div style="font-size: 12px; color: #666; font-style: italic;">+ more categories...</div>';
+                }
+
+                html += '</div>';
+                legendDiv.innerHTML = html;
+            }
         }
 
         // Display responses for highlighted users
