@@ -4,12 +4,20 @@ Export email-to-UUID mapping for distribution to participants.
 This file should be kept PRIVATE and never committed to public repos.
 """
 import csv
+import os
 
 def export_uuid_mapping():
     """Export email-to-UUID mapping from private groups file"""
+    # Get the script directory and project root
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    project_root = os.path.dirname(script_dir)
+
+    input_file = os.path.join(project_root, 'data', 'groups_with_uuid.csv')
+    output_file = os.path.join(project_root, 'data', 'uuid_email_mapping_PRIVATE.csv')
+
     mapping = []
 
-    with open('../data/groups_with_uuid.csv', 'r') as f:
+    with open(input_file, 'r') as f:
         reader = csv.DictReader(f)
         seen_emails = set()
 
@@ -30,13 +38,13 @@ def export_uuid_mapping():
     mapping.sort(key=lambda x: x['Email'])
 
     # Write to CSV
-    with open('../uuid_email_mapping_PRIVATE.csv', 'w', newline='') as f:
+    with open(output_file, 'w', newline='') as f:
         writer = csv.DictWriter(f, fieldnames=['Email', 'UUID', 'Personalized_URL'])
         writer.writeheader()
         writer.writerows(mapping)
 
     print(f"✓ Exported {len(mapping)} unique email-to-UUID mappings")
-    print("✓ File: uuid_email_mapping_PRIVATE.csv")
+    print(f"✓ File: {output_file}")
     print("\n⚠️  WARNING: Keep this file PRIVATE! Never commit to public repos.")
     print("\nYou can now:")
     print("1. Use this file to send personalized URLs via email")
