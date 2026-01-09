@@ -176,6 +176,19 @@
                                style="width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px;">
                     </div>
                     <div>
+                        <label style="display: block; margin-bottom: 8px; font-weight: 600;">Show similar people by:</label>
+                        <div style="display: flex; gap: 20px;">
+                            <label style="display: flex; align-items: center; gap: 5px; cursor: pointer;">
+                                <input type="radio" name="matchMode" value="knn" checked style="cursor: pointer;">
+                                <span>Distance (KNN)</span>
+                            </label>
+                            <label style="display: flex; align-items: center; gap: 5px; cursor: pointer;">
+                                <input type="radio" name="matchMode" value="group" style="cursor: pointer;">
+                                <span>Assigned Group</span>
+                            </label>
+                        </div>
+                    </div>
+                    <div id="knnSliderContainer">
                         <label for="knnSlider" style="display: block; margin-bottom: 5px; font-weight: 600;">
                             Number of nearest neighbors: <span id="knnValue">5</span>
                         </label>
@@ -334,6 +347,7 @@
         let highlightedIndices = new Set();  // Indices of user + KNN to highlight
         let currentUserUUID = null;
         let currentK = 5;
+        let matchMode = 'knn';  // 'knn' or 'group'
 
         Papa.parse('neuripstwin7.csv', {
             download: true,
@@ -484,6 +498,8 @@
             const uuidInput = document.getElementById('uuidInput');
             const knnSlider = document.getElementById('knnSlider');
             const knnValue = document.getElementById('knnValue');
+            const knnSliderContainer = document.getElementById('knnSliderContainer');
+            const matchModeRadios = document.querySelectorAll('input[name="matchMode"]');
 
             // Check for UUID in URL parameters
             const urlParams = new URLSearchParams(window.location.search);
@@ -504,6 +520,25 @@
                     currentUserUUID = null;
                     clearHighlighting();
                 }
+            });
+
+            // Handle match mode selection
+            matchModeRadios.forEach(radio => {
+                radio.addEventListener('change', function() {
+                    matchMode = this.value;
+
+                    // Show/hide KNN slider based on mode
+                    if (matchMode === 'group') {
+                        knnSliderContainer.style.display = 'none';
+                    } else {
+                        knnSliderContainer.style.display = 'block';
+                    }
+
+                    // Update highlighting if UUID is entered
+                    if (currentUserUUID) {
+                        updateHighlighting();
+                    }
+                });
             });
 
             // Handle k-slider
@@ -540,6 +575,26 @@
             return distances.slice(1, k + 1);  // Skip first (self) and take next k
         }
 
+        // Find people in the same group
+        function findSameGroup(userGroupData) {
+            if (!userGroupData || !groupsData) return [];
+
+            const userGroupId = userGroupData.Optimized_Group_ID;
+
+            // Find all people with the same Optimized_Group_ID (excluding self)
+            const sameGroup = groupsData
+                .map((group, idx) => ({
+                    index: idx,
+                    uuid: group.UUID
+                }))
+                .filter(g => {
+                    const groupData = groupsData[g.index];
+                    return groupData.Optimized_Group_ID === userGroupId && groupData.UUID !== userGroupData.UUID;
+                });
+
+            return sameGroup;
+        }
+
         // Update highlighting based on current UUID and k
         function updateHighlighting() {
             if (!currentUserUUID || !groupsData || !surveyData) return;
@@ -555,12 +610,17 @@
             // Use first matching entry
             const userGroupData = userGroups[0];
 
-            // Find KNN
-            const knn = findKNN(userGroupData, currentK);
+            // Find matches based on selected mode
+            let matches;
+            if (matchMode === 'group') {
+                matches = findSameGroup(userGroupData);
+            } else {
+                matches = findKNN(userGroupData, currentK);
+            }
 
-            // Find all UUIDs to highlight (user + neighbors)
+            // Find all UUIDs to highlight (user + matches)
             const uuidsToHighlight = new Set([userGroupData.UUID]);
-            knn.forEach(n => uuidsToHighlight.add(n.uuid));
+            matches.forEach(n => uuidsToHighlight.add(n.uuid));
 
             // Map UUIDs to survey data indices
             highlightedIndices.clear();
@@ -571,12 +631,13 @@
             });
 
             // Update user info display
+            const matchLabel = matchMode === 'group' ? 'group members' : 'nearest neighbors';
             document.getElementById('userInfo').style.display = 'block';
             document.getElementById('userDetails').innerHTML = `
                 <div>Cluster position: (${userGroupData.X}, ${userGroupData.Y})</div>
                 <div>Cluster ID: ${userGroupData.Cluster_ID}</div>
                 <div>Group ID: ${userGroupData.Optimized_Group_ID}</div>
-                <div style="margin-top: 5px;">Showing you + ${highlightedIndices.size - 1} neighbors</div>
+                <div style="margin-top: 5px;">Showing you + ${highlightedIndices.size - 1} ${matchLabel}</div>
             `;
 
             // Update charts
@@ -2019,7 +2080,8 @@
             // Separate user from neighbors
             const userUUID = currentUserUUID;
             const user = highlighted.find(r => r.UUID === userUUID);
-            const neighbors = highlighted.filter(r => r.UUID !== userUUID);
+            const others = highlighted.filter(r => r.UUID !== userUUID);
+            const otherLabel = matchMode === 'group' ? 'Group Member' : 'Neighbor';
 
             let html = '<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px;">';
 
@@ -2031,11 +2093,11 @@
                 html += '</div>';
             }
 
-            // Show neighbors' responses
-            neighbors.slice(0, 5).forEach((neighbor, idx) => {
+            // Show neighbors' or group members' responses
+            others.slice(0, 5).forEach((other, idx) => {
                 html += '<div style="background: white; padding: 15px; border-radius: 8px; border: 1px solid #ddd;">';
-                html += `<h3 style="margin-top: 0; color: #666;">Neighbor ${idx + 1}</h3>`;
-                html += formatResponses(neighbor);
+                html += `<h3 style="margin-top: 0; color: #666;">${otherLabel} ${idx + 1}</h3>`;
+                html += formatResponses(other);
                 html += '</div>';
             });
 
