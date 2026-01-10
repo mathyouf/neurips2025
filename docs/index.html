@@ -995,8 +995,8 @@
 
             calculateVisibleLabels(allData, visibleLabelIndices1);
 
-            // Process individual respondents
-            const individuals = processIndividualRespondents(
+            // Aggregate respondents by intersection
+            const intersections = aggregateByIntersection(
                 'I believe AGI is likely within the next 10 years.',
                 'We should slow down AI progress until safety is better understood.',
                 [
@@ -1006,46 +1006,50 @@
                 ]
             );
 
-            // Create individual points dataset (rendered first, so behind category points)
-            const individualDataset = {
-                label: 'Individual Respondents',
-                data: individuals.map(ind => ({
-                    x: ind.x,
-                    y: 6 - ind.y,  // Invert Y for display
-                    categories: ind.categories,
-                    respondentId: ind.respondentId,
-                    originalX: ind.originalX,
-                    originalY: ind.originalY
+            // Store for drawing lines later
+            window.chart1Intersections = intersections;
+
+            // Create intersection points dataset
+            const intersectionDataset = {
+                label: 'Intersection Points',
+                data: intersections.map(int => ({
+                    x: int.x,
+                    y: 6 - int.y,  // Invert Y for display
+                    originalX: int.x,
+                    originalY: int.y,
+                    count: int.count,
+                    respondentIds: int.respondentIds,
+                    categoryBreakdown: int.categoryBreakdown
                 })),
-                backgroundColor: individuals.map((ind, idx) => {
-                    // Color based on coordinates with reduced opacity
-                    const color = getColorForPoint(ind.originalX, ind.originalY);
-                    // Highlight if in highlighted set (user + KNN)
-                    if (highlightedIndices.has(ind.respondentId)) {
-                        return color.replace(/[\d.]+\)$/, '1.0)');  // Full opacity for highlighted
-                    }
-                    return color.replace(/[\d.]+\)$/, '0.2)');  // Normal opacity
+                backgroundColor: intersections.map(int => {
+                    // Check if any respondent at this intersection is highlighted
+                    const hasHighlighted = int.respondentIds.some(id => highlightedIndices.has(id));
+                    const color = getColorForPoint(int.x, int.y);
+                    return hasHighlighted ? color.replace(/[\d.]+\)$/, '1.0)') : color.replace(/[\d.]+\)$/, '0.6)');
                 }),
-                borderColor: individuals.map((ind, idx) => {
-                    const color = getBorderColorForPoint(ind.originalX, ind.originalY);
-                    // Bright border if highlighted
-                    if (highlightedIndices.has(ind.respondentId)) {
-                        return 'rgba(255, 215, 0, 1)';  // Gold border
-                    }
-                    return color.replace('rgb', 'rgba').replace(')', ', 0.4)');
+                borderColor: intersections.map(int => {
+                    const hasHighlighted = int.respondentIds.some(id => highlightedIndices.has(id));
+                    return hasHighlighted ? 'rgba(255, 215, 0, 1)' : getBorderColorForPoint(int.x, int.y);
                 }),
-                borderWidth: individuals.map((ind, idx) => {
-                    return highlightedIndices.has(ind.respondentId) ? 2 : 0.5;
+                borderWidth: intersections.map(int => {
+                    const hasHighlighted = int.respondentIds.some(id => highlightedIndices.has(id));
+                    return hasHighlighted ? 3 : 1.5;
                 }),
-                pointRadius: individuals.map((ind, idx) => {
-                    return highlightedIndices.has(ind.respondentId) ? 4 : 2;
-                }),
-                pointHoverRadius: 3,  // Slightly larger on hover
+                pointRadius: intersections.map(int => Math.max(6, Math.sqrt(int.count) * 2.5)),
+                pointHoverRadius: intersections.map(int => Math.max(7, Math.sqrt(int.count) * 2.7)),
                 pointStyle: 'circle',
-                hitRadius: 3,  // Small hit area for individual points
-                order: 2,  // Draw individual points first (behind categories)
+                hitRadius: 8,
+                order: 2,
                 datalabels: {
-                    display: false  // No labels for individual points
+                    display: true,
+                    color: '#000',
+                    font: { size: 10, weight: 'bold' },
+                    formatter: function(value) {
+                        return value.count;
+                    },
+                    backgroundColor: 'rgba(255, 255, 255, 0.8)',
+                    borderRadius: 3,
+                    padding: 2
                 }
             };
 
@@ -1074,7 +1078,7 @@
 
             chart1Instance = new Chart(ctx, {
                 type: 'scatter',
-                data: { datasets: [individualDataset, categoryDataset] },
+                data: { datasets: [intersectionDataset, categoryDataset] },
                 options: {
                     responsive: true,
                     maintainAspectRatio: true,
@@ -1322,9 +1326,9 @@
 
             calculateVisibleLabels(allData, visibleLabelIndices2);
 
-            // Process individual respondents for second compass
-            const individuals = processIndividualRespondents(
-                'I’d rather build a working prototype than write a perfect paper.',
+            // Aggregate respondents by intersection for second compass
+            const intersections = aggregateByIntersection(
+                'I'd rather build a working prototype than write a perfect paper.',
                 'I believe creativity is more important than rigor in research.',
                 [
                     {col: 'Who would you most want to have dinner with?'},
@@ -1333,46 +1337,49 @@
                 ]
             );
 
-            // Create individual points dataset
-            const individualDataset = {
-                label: 'Individual Respondents',
-                data: individuals.map(ind => ({
-                    x: ind.x,
-                    y: ind.y,  // No inversion for second chart
-                    categories: ind.categories,
-                    respondentId: ind.respondentId,
-                    originalX: ind.originalX,
-                    originalY: ind.originalY
+            // Store for drawing lines later
+            window.chart2Intersections = intersections;
+
+            // Create intersection points dataset
+            const intersectionDataset = {
+                label: 'Intersection Points',
+                data: intersections.map(int => ({
+                    x: int.x,
+                    y: int.y,  // No inversion for second chart
+                    originalX: int.x,
+                    originalY: int.y,
+                    count: int.count,
+                    respondentIds: int.respondentIds,
+                    categoryBreakdown: int.categoryBreakdown
                 })),
-                backgroundColor: individuals.map((ind, idx) => {
-                    // Color based on coordinates with reduced opacity
-                    const color = getColorForPoint(ind.originalX, ind.originalY);
-                    // Highlight if in highlighted set (user + KNN)
-                    if (highlightedIndices.has(ind.respondentId)) {
-                        return color.replace(/[\d.]+\)$/, '1.0)');  // Full opacity for highlighted
-                    }
-                    return color.replace(/[\d.]+\)$/, '0.2)');  // Normal opacity
+                backgroundColor: intersections.map(int => {
+                    const hasHighlighted = int.respondentIds.some(id => highlightedIndices.has(id));
+                    const color = getColorForPoint(int.x, int.y);
+                    return hasHighlighted ? color.replace(/[\d.]+\)$/, '1.0)') : color.replace(/[\d.]+\)$/, '0.6)');
                 }),
-                borderColor: individuals.map((ind, idx) => {
-                    const color = getBorderColorForPoint(ind.originalX, ind.originalY);
-                    // Bright border if highlighted
-                    if (highlightedIndices.has(ind.respondentId)) {
-                        return 'rgba(255, 215, 0, 1)';  // Gold border
-                    }
-                    return color.replace('rgb', 'rgba').replace(')', ', 0.4)');
+                borderColor: intersections.map(int => {
+                    const hasHighlighted = int.respondentIds.some(id => highlightedIndices.has(id));
+                    return hasHighlighted ? 'rgba(255, 215, 0, 1)' : getBorderColorForPoint(int.x, int.y);
                 }),
-                borderWidth: individuals.map((ind, idx) => {
-                    return highlightedIndices.has(ind.respondentId) ? 2 : 0.5;
+                borderWidth: intersections.map(int => {
+                    const hasHighlighted = int.respondentIds.some(id => highlightedIndices.has(id));
+                    return hasHighlighted ? 3 : 1.5;
                 }),
-                pointRadius: individuals.map((ind, idx) => {
-                    return highlightedIndices.has(ind.respondentId) ? 4 : 2;
-                }),
-                pointHoverRadius: 3,  // Slightly larger on hover
+                pointRadius: intersections.map(int => Math.max(6, Math.sqrt(int.count) * 2.5)),
+                pointHoverRadius: intersections.map(int => Math.max(7, Math.sqrt(int.count) * 2.7)),
                 pointStyle: 'circle',
-                hitRadius: 3,  // Small hit area for individual points
-                order: 2,  // Draw individual points first (behind categories)
+                hitRadius: 8,
+                order: 2,
                 datalabels: {
-                    display: false
+                    display: true,
+                    color: '#000',
+                    font: { size: 10, weight: 'bold' },
+                    formatter: function(value) {
+                        return value.count;
+                    },
+                    backgroundColor: 'rgba(255, 255, 255, 0.8)',
+                    borderRadius: 3,
+                    padding: 2
                 }
             };
 
@@ -1401,7 +1408,7 @@
 
             chart2Instance = new Chart(ctx, {
                 type: 'scatter',
-                data: { datasets: [individualDataset, categoryDataset] },
+                data: { datasets: [intersectionDataset, categoryDataset] },
                 options: {
                     responsive: true,
                     maintainAspectRatio: true,
