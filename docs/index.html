@@ -285,32 +285,6 @@
                     <!-- Will be populated dynamically -->
                 </div>
             </section>
-
-            <section class="section">
-                <h2>3. UMAP Clustering Across All Questions</h2>
-                <p style="font-style: italic; color: #666; margin-bottom: 15px;">
-                    This visualization shows respondent similarity using UMAP dimensionality reduction across all survey questions.
-                    Categorical and open-ended responses were embedded using a text embedding model.
-                    Closer points indicate more similar overall response patterns.
-                </p>
-                <div style="margin-bottom: 15px;">
-                    <label for="questionSelector" style="font-weight: 600; margin-right: 10px;">Color by question:</label>
-                    <select id="questionSelector" style="padding: 5px 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px;">
-                        <option value="">-- Select a question --</option>
-                    </select>
-                </div>
-                <div id="umapLegend" style="margin-bottom: 15px; padding: 10px; background: #f9f9f9; border-radius: 4px; display: none;">
-                    <!-- Legend will be populated dynamically -->
-                </div>
-                <div class="chart-container">
-                    <canvas id="umapChart"></canvas>
-                </div>
-                <div class="figure-caption">
-                    <strong>Figure 3:</strong> UMAP projection of all survey responses showing natural clustering of similar researchers.
-                    Each point represents one respondent, positioned based on similarity across all questions.
-                    Use the dropdown above to color points by their answer to specific questions.
-                </div>
-            </section>
         </div>
 
         <footer>
@@ -718,6 +692,55 @@
 
         function addJitter(value, amount = 0.08) {
             return value + (Math.random() - 0.5) * amount;
+        }
+
+        // Aggregate respondents by exact (x,y) intersection
+        function aggregateByIntersection(xCol, yCol, categories) {
+            const intersections = {};
+
+            surveyData.forEach((row, idx) => {
+                const x = parseFloat(row[xCol]);
+                const y = parseFloat(row[yCol]);
+
+                if (!isNaN(x) && !isNaN(y)) {
+                    const key = `${x},${y}`;
+
+                    if (!intersections[key]) {
+                        intersections[key] = {
+                            x: x,
+                            y: y,
+                            count: 0,
+                            respondentIds: [],
+                            categoryBreakdown: {}  // For each category column, track value counts
+                        };
+
+                        // Initialize category breakdown
+                        categories.forEach(cat => {
+                            intersections[key].categoryBreakdown[cat.col] = {};
+                        });
+                    }
+
+                    intersections[key].count++;
+                    intersections[key].respondentIds.push(idx);
+
+                    // Track category values for this respondent
+                    categories.forEach(cat => {
+                        const catValue = row[cat.col];
+                        if (catValue && catValue.trim() !== '') {
+                            if (!intersections[key].categoryBreakdown[cat.col][catValue]) {
+                                intersections[key].categoryBreakdown[cat.col][catValue] = {
+                                    count: 0,
+                                    respondentIds: []
+                                };
+                            }
+                            intersections[key].categoryBreakdown[cat.col][catValue].count++;
+                            intersections[key].categoryBreakdown[cat.col][catValue].respondentIds.push(idx);
+                        }
+                    });
+                }
+            });
+
+            return Object.values(intersections);
         }
 
         function processIndividualRespondents(xCol, yCol, categories) {
