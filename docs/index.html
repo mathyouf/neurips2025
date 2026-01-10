@@ -944,99 +944,145 @@
             }
         }
 
+        // Global state for hover highlights (which targets and their counts)
+        let chart1HighlightedCategories = new Map();  // catIndex -> count
+        let chart1HighlightedIntersections = new Map();  // intIndex -> count
+        let chart2HighlightedCategories = new Map();
+        let chart2HighlightedIntersections = new Map();
+
         // Chart.js plugin to draw connection lines from intersections to categories
         const connectionLinesPlugin = {
             id: 'connectionLines',
-            afterDatasetsDraw(chart, args, options) {
-                const ctx = chart.ctx;
+            beforeUpdate(chart) {
                 const isChart1 = chart.canvas.id === 'compassChart1';
-
-                // Get hover state for this chart
                 const hoveredIntersection = isChart1 ? hoveredChart1Intersection : hoveredChart2Intersection;
                 const hoveredCategory = isChart1 ? hoveredChart1Category : hoveredChart2Category;
+                const intersections = isChart1 ? window.chart1Intersections : window.chart2Intersections;
 
-                // Get datasets
+                const highlightedCats = isChart1 ? chart1HighlightedCategories : chart2HighlightedCategories;
+                const highlightedInts = isChart1 ? chart1HighlightedIntersections : chart2HighlightedIntersections;
+
+                highlightedCats.clear();
+                highlightedInts.clear();
+
                 const intersectionDataset = chart.data.datasets[0];
                 const categoryDataset = chart.data.datasets[1];
 
-                if (!intersectionDataset || !categoryDataset) return;
+                if (!intersectionDataset || !categoryDataset || !intersections) return;
 
-                // Get intersections data
-                const intersections = isChart1 ? window.chart1Intersections : window.chart2Intersections;
-                if (!intersections) return;
+                // Calculate which items to highlight and their counts
+                if (hoveredIntersection) {
+                    const intersection = intersections[hoveredIntersection.index];
+                    if (intersection) {
+                        // Hovering intersection -> highlight categories
+                        Object.entries(intersection.categoryBreakdown).forEach(([catCol, catValues]) => {
+                            Object.entries(catValues).forEach(([catValue, catData]) => {
+                                const catIndex = categoryDataset.data.findIndex(d => d.categoryLabel === catValue);
+                                if (catIndex !== -1) {
+                                    highlightedCats.set(catIndex, catData.count);
+                                }
+                            });
+                        });
+                    }
+                } else if (hoveredCategory) {
+                    const categoryLabel = categoryDataset.data[hoveredCategory.index].categoryLabel;
+                    // Hovering category -> highlight intersections
+                    intersections.forEach((intersection, intIndex) => {
+                        let totalCount = 0;
+                        Object.entries(intersection.categoryBreakdown).forEach(([catCol, catValues]) => {
+                            if (catValues[categoryLabel]) {
+                                totalCount += catValues[categoryLabel].count;
+                            }
+                        });
+                        if (totalCount > 0) {
+                            highlightedInts.set(intIndex, totalCount);
+                        }
+                    });
+                }
+            },
+            afterDatasetsDraw(chart, args, options) {
+                const ctx = chart.ctx;
+                const isChart1 = chart.canvas.id === 'compassChart1';
+                const hoveredIntersection = isChart1 ? hoveredChart1Intersection : hoveredChart2Intersection;
+                const hoveredCategory = isChart1 ? hoveredChart1Category : hoveredChart2Category;
+                const highlightedCats = isChart1 ? chart1HighlightedCategories : chart2HighlightedCategories;
+                const highlightedInts = isChart1 ? chart1HighlightedIntersections : chart2HighlightedIntersections;
 
                 const intMeta = chart.getDatasetMeta(0);
                 const catMeta = chart.getDatasetMeta(1);
 
                 ctx.save();
 
-                // CASE 1: Hovering over an intersection - show lines to categories
+                // Draw thin uniform lines from hovered item to highlighted targets
                 if (hoveredIntersection) {
-                    const intersection = intersections[hoveredIntersection.index];
-                    if (!intersection) return;
-
                     const intElement = intMeta.data[hoveredIntersection.index];
-                    if (!intElement) return;
-
-                    const intX = intElement.x;
-                    const intY = intElement.y;
-
-                    // Draw lines to all categories that people at this intersection chose
-                    Object.entries(intersection.categoryBreakdown).forEach(([catCol, catValues]) => {
-                        Object.entries(catValues).forEach(([catValue, catData]) => {
-                            const catIndex = categoryDataset.data.findIndex(d => d.categoryLabel === catValue);
-                            if (catIndex === -1) return;
-
+                    if (intElement) {
+                        highlightedCats.forEach((count, catIndex) => {
                             const catElement = catMeta.data[catIndex];
-                            if (!catElement) return;
+                            if (catElement) {
+                                ctx.beginPath();
+                                ctx.moveTo(intElement.x, intElement.y);
+                                ctx.lineTo(catElement.x, catElement.y);
+                                ctx.strokeStyle = 'rgba(100, 150, 200, 0.4)';
+                                ctx.lineWidth = 2;
+                                ctx.stroke();
 
-                            const lineWidth = Math.max(1, Math.min(10, catData.count * 1.5));
-
-                            ctx.beginPath();
-                            ctx.moveTo(intX, intY);
-                            ctx.lineTo(catElement.x, catElement.y);
-                            ctx.strokeStyle = 'rgba(100, 150, 200, 0.5)';
-                            ctx.lineWidth = lineWidth;
-                            ctx.stroke();
-                        });
-                    });
-                }
-
-                // CASE 2: Hovering over a category - show lines to intersections
-                if (hoveredCategory) {
-                    const catElement = catMeta.data[hoveredCategory.index];
-                    if (!catElement) return;
-
-                    const catX = catElement.x;
-                    const catY = catElement.y;
-                    const categoryLabel = categoryDataset.data[hoveredCategory.index].categoryLabel;
-
-                    // For each intersection, check if anyone chose this category
-                    intersections.forEach((intersection, intIndex) => {
-                        let totalCount = 0;
-
-                        // Count people at this intersection who chose this category
-                        Object.entries(intersection.categoryBreakdown).forEach(([catCol, catValues]) => {
-                            if (catValues[categoryLabel]) {
-                                totalCount += catValues[categoryLabel].count;
+                                // Draw count on target category
+                                ctx.fillStyle = '#000';
+                                ctx.font = 'bold 11px Arial';
+                                ctx.textAlign = 'center';
+                                ctx.textBaseline = 'middle';
+                                ctx.fillText(count, catElement.x, catElement.y);
                             }
                         });
-
-                        if (totalCount > 0) {
+                    }
+                } else if (hoveredCategory) {
+                    const catElement = catMeta.data[hoveredCategory.index];
+                    if (catElement) {
+                        highlightedInts.forEach((count, intIndex) => {
                             const intElement = intMeta.data[intIndex];
-                            if (!intElement) return;
+                            if (intElement) {
+                                ctx.beginPath();
+                                ctx.moveTo(catElement.x, catElement.y);
+                                ctx.lineTo(intElement.x, intElement.y);
+                                ctx.strokeStyle = 'rgba(100, 150, 200, 0.4)';
+                                ctx.lineWidth = 2;
+                                ctx.stroke();
 
-                            const lineWidth = Math.max(1, Math.min(10, totalCount * 1.5));
-
-                            ctx.beginPath();
-                            ctx.moveTo(catX, catY);
-                            ctx.lineTo(intElement.x, intElement.y);
-                            ctx.strokeStyle = 'rgba(100, 150, 200, 0.5)';
-                            ctx.lineWidth = lineWidth;
-                            ctx.stroke();
-                        }
-                    });
+                                // Draw count on target intersection
+                                ctx.fillStyle = '#000';
+                                ctx.font = 'bold 11px Arial';
+                                ctx.textAlign = 'center';
+                                ctx.textBaseline = 'middle';
+                                ctx.fillText(count, intElement.x, intElement.y);
+                            }
+                        });
+                    }
                 }
+
+                // Draw thick borders on highlighted items
+                ctx.lineWidth = 3;
+                ctx.strokeStyle = 'rgba(0, 100, 200, 0.8)';
+
+                highlightedCats.forEach((count, catIndex) => {
+                    const catElement = catMeta.data[catIndex];
+                    if (catElement) {
+                        const radius = catElement.options.radius || 5;
+                        ctx.beginPath();
+                        ctx.arc(catElement.x, catElement.y, radius, 0, 2 * Math.PI);
+                        ctx.stroke();
+                    }
+                });
+
+                highlightedInts.forEach((count, intIndex) => {
+                    const intElement = intMeta.data[intIndex];
+                    if (intElement) {
+                        const radius = intElement.options.radius || 5;
+                        ctx.beginPath();
+                        ctx.arc(intElement.x, intElement.y, radius, 0, 2 * Math.PI);
+                        ctx.stroke();
+                    }
+                });
 
                 ctx.restore();
             }
@@ -1170,11 +1216,15 @@
                         },
                         datalabels: {
                             display: function(context) {
-                                // Show if: hovered, in default visible set, or in hover-forced set
-                                if (hoveredCategoryLabelsToShow1.size > 0) {
-                                    return hoveredCategoryLabelsToShow1.has(context.dataIndex);
+                                // Show only if highlighted during hover
+                                if (chart1HighlightedCategories.has(context.dataIndex)) {
+                                    return true;
                                 }
-                                return context.hovered || visibleLabelIndices1.has(context.dataIndex);
+                                // Or if no hover, show default visible labels
+                                if (!hoveredChart1Intersection && !hoveredChart1Category) {
+                                    return visibleLabelIndices1.has(context.dataIndex);
+                                }
+                                return false;
                             },
                             align: function(context) {
                                 const point = context.dataset.data[context.dataIndex];
@@ -1408,11 +1458,15 @@
                         },
                         datalabels: {
                             display: function(context) {
-                                // Show if: hovered, in default visible set, or in hover-forced set
-                                if (hoveredCategoryLabelsToShow2.size > 0) {
-                                    return hoveredCategoryLabelsToShow2.has(context.dataIndex);
+                                // Show only if highlighted during hover
+                                if (chart2HighlightedCategories.has(context.dataIndex)) {
+                                    return true;
                                 }
-                                return context.hovered || visibleLabelIndices2.has(context.dataIndex);
+                                // Or if no hover, show default visible labels
+                                if (!hoveredChart2Intersection && !hoveredChart2Category) {
+                                    return visibleLabelIndices2.has(context.dataIndex);
+                                }
+                                return false;
                             },
                             align: function(context) {
                                 const point = context.dataset.data[context.dataIndex];
