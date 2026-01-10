@@ -786,19 +786,20 @@
 
             if (yNorm < 0.5) {
                 const t = yNorm * 2;
-                r = Math.round(59 + (255 - 59) * t);
-                g = Math.round(130 + (255 - 130) * t);
-                b = Math.round(246 + (255 - 246) * t);
+                r = Math.round(30 + (255 - 30) * t);  // Darker blue start
+                g = Math.round(100 + (255 - 100) * t);
+                b = Math.round(220 + (255 - 220) * t);
             } else {
                 const t = (yNorm - 0.5) * 2;
-                r = Math.round(255 + (220 - 255) * t);
-                g = Math.round(255 + (20 - 255) * t);
-                b = Math.round(255 + (20 - 255) * t);
+                r = Math.round(255 + (200 - 255) * t);  // Darker red end
+                g = Math.round(255 + (0 - 255) * t);
+                b = Math.round(255 + (0 - 255) * t);
             }
 
+            // Higher minimum alpha for better visibility
             const xNorm = (x - 1) / 4;
             const alphaNorm = Math.pow(xNorm, 2);
-            const alpha = 0.25 + (alphaNorm * 0.75);
+            const alpha = 0.6 + (alphaNorm * 0.4);  // 0.6 to 1.0 instead of 0.25 to 1.0
 
             return `rgba(${r}, ${g}, ${b}, ${alpha})`;
         }
@@ -809,14 +810,14 @@
 
             if (yNorm < 0.5) {
                 const t = yNorm * 2;
-                r = Math.round(59 + (255 - 59) * t);
-                g = Math.round(130 + (255 - 130) * t);
-                b = Math.round(246 + (255 - 246) * t);
+                r = Math.round(30 + (255 - 30) * t);
+                g = Math.round(100 + (255 - 100) * t);
+                b = Math.round(220 + (255 - 220) * t);
             } else {
                 const t = (yNorm - 0.5) * 2;
-                r = Math.round(255 + (220 - 255) * t);
-                g = Math.round(255 + (20 - 255) * t);
-                b = Math.round(255 + (20 - 255) * t);
+                r = Math.round(255 + (200 - 255) * t);
+                g = Math.round(255 + (0 - 255) * t);
+                b = Math.round(255 + (0 - 255) * t);
             }
 
             return `rgb(${r}, ${g}, ${b})`;
@@ -1263,8 +1264,13 @@
                             max: 5.15,
                             ticks: {
                                 stepSize: 1,
+                                autoSkip: false,
                                 callback: function(value) {
-                                    return 6 - value;
+                                    // Only show integer ticks from 1-5, inverted
+                                    if (Number.isInteger(value) && value >= 1 && value <= 5) {
+                                        return 6 - value;
+                                    }
+                                    return null;
                                 }
                             },
                             grid: {
@@ -1618,7 +1624,15 @@
                             min: 0.85,
                             max: 5.15,
                             ticks: {
-                                stepSize: 1
+                                stepSize: 1,
+                                autoSkip: false,
+                                callback: function(value) {
+                                    // Only show integer ticks from 1-5
+                                    if (Number.isInteger(value) && value >= 1 && value <= 5) {
+                                        return value;
+                                    }
+                                    return null;
+                                }
                             },
                             grid: {
                                 color: function(context) {
