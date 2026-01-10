@@ -631,63 +631,53 @@
         function updateChartHighlighting() {
             if (!chart1Instance || !chart2Instance) return;
 
-            // Update chart 1
-            const individuals1 = chart1Instance.data.datasets[0].data;
-            chart1Instance.data.datasets[0].backgroundColor = individuals1.map((point, idx) => {
-                const ind = point;
-                const color = getColorForPoint(ind.originalX, ind.originalY);
-                if (highlightedIndices.has(ind.respondentId)) {
+            // Update chart 1 - intersection points
+            const intersections1 = chart1Instance.data.datasets[0].data;
+            chart1Instance.data.datasets[0].backgroundColor = intersections1.map((point, idx) => {
+                const color = getColorForPoint(point.originalX, point.originalY);
+                // Check if any respondent at this intersection is highlighted
+                const hasHighlighted = point.respondentIds && point.respondentIds.some(id => highlightedIndices.has(id));
+                if (hasHighlighted) {
                     return color.replace(/[\d.]+\)$/, '1.0)');
                 }
-                return color.replace(/[\d.]+\)$/, '0.2)');
+                return color.replace(/[\d.]+\)$/, '0.6)');
             });
-            chart1Instance.data.datasets[0].borderColor = individuals1.map((point, idx) => {
-                const ind = point;
-                const color = getBorderColorForPoint(ind.originalX, ind.originalY);
-                if (highlightedIndices.has(ind.respondentId)) {
+            chart1Instance.data.datasets[0].borderColor = intersections1.map((point, idx) => {
+                const hasHighlighted = point.respondentIds && point.respondentIds.some(id => highlightedIndices.has(id));
+                if (hasHighlighted) {
                     return 'rgba(255, 215, 0, 1)';
                 }
-                return color.replace('rgb', 'rgba').replace(')', ', 0.4)');
+                return getBorderColorForPoint(point.originalX, point.originalY);
             });
-            chart1Instance.data.datasets[0].borderWidth = individuals1.map((point, idx) => {
-                return highlightedIndices.has(point.respondentId) ? 2 : 0.5;
-            });
-            chart1Instance.data.datasets[0].pointRadius = individuals1.map((point, idx) => {
-                return highlightedIndices.has(point.respondentId) ? 4 : 2;
+            chart1Instance.data.datasets[0].borderWidth = intersections1.map((point, idx) => {
+                const hasHighlighted = point.respondentIds && point.respondentIds.some(id => highlightedIndices.has(id));
+                return hasHighlighted ? 3 : 1.5;
             });
 
-            // Update chart 2
-            const individuals2 = chart2Instance.data.datasets[0].data;
-            chart2Instance.data.datasets[0].backgroundColor = individuals2.map((point, idx) => {
-                const ind = point;
-                const color = getColorForPoint(ind.originalX, ind.originalY);
-                if (highlightedIndices.has(ind.respondentId)) {
+            // Update chart 2 - intersection points
+            const intersections2 = chart2Instance.data.datasets[0].data;
+            chart2Instance.data.datasets[0].backgroundColor = intersections2.map((point, idx) => {
+                const color = getColorForPoint(point.originalX, point.originalY);
+                const hasHighlighted = point.respondentIds && point.respondentIds.some(id => highlightedIndices.has(id));
+                if (hasHighlighted) {
                     return color.replace(/[\d.]+\)$/, '1.0)');
                 }
-                return color.replace(/[\d.]+\)$/, '0.2)');
+                return color.replace(/[\d.]+\)$/, '0.6)');
             });
-            chart2Instance.data.datasets[0].borderColor = individuals2.map((point, idx) => {
-                const ind = point;
-                const color = getBorderColorForPoint(ind.originalX, ind.originalY);
-                if (highlightedIndices.has(ind.respondentId)) {
+            chart2Instance.data.datasets[0].borderColor = intersections2.map((point, idx) => {
+                const hasHighlighted = point.respondentIds && point.respondentIds.some(id => highlightedIndices.has(id));
+                if (hasHighlighted) {
                     return 'rgba(255, 215, 0, 1)';
                 }
-                return color.replace('rgb', 'rgba').replace(')', ', 0.4)');
+                return getBorderColorForPoint(point.originalX, point.originalY);
             });
-            chart2Instance.data.datasets[0].borderWidth = individuals2.map((point, idx) => {
-                return highlightedIndices.has(point.respondentId) ? 2 : 0.5;
-            });
-            chart2Instance.data.datasets[0].pointRadius = individuals2.map((point, idx) => {
-                return highlightedIndices.has(point.respondentId) ? 4 : 2;
+            chart2Instance.data.datasets[0].borderWidth = intersections2.map((point, idx) => {
+                const hasHighlighted = point.respondentIds && point.respondentIds.some(id => highlightedIndices.has(id));
+                return hasHighlighted ? 3 : 1.5;
             });
 
             chart1Instance.update('none');
             chart2Instance.update('none');
-
-            // Update UMAP chart if it exists
-            if (window.umapChartInstance) {
-                updateUMAPHighlighting();
-            }
         }
 
         function addJitter(value, amount = 0.08) {
@@ -973,6 +963,80 @@
             }
         }
 
+        // Chart.js plugin to draw connection lines from intersections to categories
+        const connectionLinesPlugin = {
+            id: 'connectionLines',
+            afterDatasetsDraw(chart, args, options) {
+                const ctx = chart.ctx;
+                const chartArea = chart.chartArea;
+
+                // Only draw if we have highlighted respondents
+                if (highlightedIndices.size === 0) return;
+
+                // Get intersection and category data
+                const intersectionDataset = chart.data.datasets[0]; // First dataset is intersections
+                const categoryDataset = chart.data.datasets[1]; // Second dataset is categories
+
+                if (!intersectionDataset || !categoryDataset) return;
+
+                // Get the appropriate intersections data
+                const intersections = chart.canvas.id === 'compassChart1' ?
+                    window.chart1Intersections : window.chart2Intersections;
+
+                if (!intersections) return;
+
+                ctx.save();
+
+                // Find highlighted intersections
+                intersectionDataset.data.forEach((intPoint, intIndex) => {
+                    const intersection = intersections[intIndex];
+                    if (!intersection) return;
+
+                    // Check if this intersection has any highlighted respondents
+                    const hasHighlighted = intersection.respondentIds.some(id => highlightedIndices.has(id));
+                    if (!hasHighlighted) return;
+
+                    // Get pixel coordinates for this intersection point
+                    const intMeta = chart.getDatasetMeta(0);
+                    const intElement = intMeta.data[intIndex];
+                    if (!intElement) return;
+
+                    const intX = intElement.x;
+                    const intY = intElement.y;
+
+                    // Draw lines to categories based on categoryBreakdown
+                    Object.entries(intersection.categoryBreakdown).forEach(([catCol, catValues]) => {
+                        Object.entries(catValues).forEach(([catValue, catData]) => {
+                            // Find the category point in categoryDataset
+                            const catIndex = categoryDataset.data.findIndex(d => d.categoryLabel === catValue);
+                            if (catIndex === -1) return;
+
+                            // Get pixel coordinates for category point
+                            const catMeta = chart.getDatasetMeta(1);
+                            const catElement = catMeta.data[catIndex];
+                            if (!catElement) return;
+
+                            const catX = catElement.x;
+                            const catY = catElement.y;
+
+                            // Calculate line thickness based on count (1-10 range)
+                            const lineWidth = Math.max(1, Math.min(10, catData.count * 1.5));
+
+                            // Draw line
+                            ctx.beginPath();
+                            ctx.moveTo(intX, intY);
+                            ctx.lineTo(catX, catY);
+                            ctx.strokeStyle = 'rgba(255, 215, 0, 0.4)'; // Semi-transparent gold
+                            ctx.lineWidth = lineWidth;
+                            ctx.stroke();
+                        });
+                    });
+                });
+
+                ctx.restore();
+            }
+        };
+
         function createCompassChart1() {
             const canvas = document.getElementById('compassChart1');
             const ctx = canvas.getContext('2d');
@@ -1079,6 +1143,7 @@
             chart1Instance = new Chart(ctx, {
                 type: 'scatter',
                 data: { datasets: [intersectionDataset, categoryDataset] },
+                plugins: [connectionLinesPlugin],
                 options: {
                     responsive: true,
                     maintainAspectRatio: true,
@@ -1409,6 +1474,7 @@
             chart2Instance = new Chart(ctx, {
                 type: 'scatter',
                 data: { datasets: [intersectionDataset, categoryDataset] },
+                plugins: [connectionLinesPlugin],
                 options: {
                     responsive: true,
                     maintainAspectRatio: true,
