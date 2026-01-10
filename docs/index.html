@@ -176,7 +176,13 @@
                                style="width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px;">
                     </div>
                     <div>
-                        <label style="display: block; margin-bottom: 8px; font-weight: 600;">Show similar people by:</label>
+                        <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+                            <input type="checkbox" id="showKnnToggle" style="cursor: pointer;">
+                            <span style="font-weight: 600;">Show my matches on charts (KNN or Group)</span>
+                        </label>
+                    </div>
+                    <div id="matchModeContainer" style="display: none;">
+                        <label style="display: block; margin-bottom: 8px; font-weight: 600;">Match by:</label>
                         <div style="display: flex; gap: 20px;">
                             <label style="display: flex; align-items: center; gap: 5px; cursor: pointer;">
                                 <input type="radio" name="matchMode" value="knn" checked style="cursor: pointer;">
@@ -188,7 +194,7 @@
                             </label>
                         </div>
                     </div>
-                    <div id="knnSliderContainer">
+                    <div id="knnSliderContainer" style="display: none;">
                         <label for="knnSlider" style="display: block; margin-bottom: 5px; font-weight: 600;">
                             Number of nearest neighbors: <span id="knnValue">5</span>
                         </label>
@@ -322,6 +328,13 @@
         let currentUserUUID = null;
         let currentK = 5;
         let matchMode = 'knn';  // 'knn' or 'group'
+        let showKnnHighlighting = false;  // Toggle for showing KNN/group highlighting
+
+        // Hover state tracking for connection lines
+        let hoveredChart1Intersection = null;  // {index, data}
+        let hoveredChart2Intersection = null;
+        let hoveredChart1Category = null;      // {index, data}
+        let hoveredChart2Category = null;
 
         Papa.parse('neuripstwin7.csv', {
             download: true,
@@ -909,70 +922,94 @@
             id: 'connectionLines',
             afterDatasetsDraw(chart, args, options) {
                 const ctx = chart.ctx;
-                const chartArea = chart.chartArea;
+                const isChart1 = chart.canvas.id === 'compassChart1';
 
-                // Only draw if we have highlighted respondents
-                if (highlightedIndices.size === 0) return;
+                // Get hover state for this chart
+                const hoveredIntersection = isChart1 ? hoveredChart1Intersection : hoveredChart2Intersection;
+                const hoveredCategory = isChart1 ? hoveredChart1Category : hoveredChart2Category;
 
-                // Get intersection and category data
-                const intersectionDataset = chart.data.datasets[0]; // First dataset is intersections
-                const categoryDataset = chart.data.datasets[1]; // Second dataset is categories
+                // Get datasets
+                const intersectionDataset = chart.data.datasets[0];
+                const categoryDataset = chart.data.datasets[1];
 
                 if (!intersectionDataset || !categoryDataset) return;
 
-                // Get the appropriate intersections data
-                const intersections = chart.canvas.id === 'compassChart1' ?
-                    window.chart1Intersections : window.chart2Intersections;
-
+                // Get intersections data
+                const intersections = isChart1 ? window.chart1Intersections : window.chart2Intersections;
                 if (!intersections) return;
+
+                const intMeta = chart.getDatasetMeta(0);
+                const catMeta = chart.getDatasetMeta(1);
 
                 ctx.save();
 
-                // Find highlighted intersections
-                intersectionDataset.data.forEach((intPoint, intIndex) => {
-                    const intersection = intersections[intIndex];
+                // CASE 1: Hovering over an intersection - show lines to categories
+                if (hoveredIntersection) {
+                    const intersection = intersections[hoveredIntersection.index];
                     if (!intersection) return;
 
-                    // Check if this intersection has any highlighted respondents
-                    const hasHighlighted = intersection.respondentIds.some(id => highlightedIndices.has(id));
-                    if (!hasHighlighted) return;
-
-                    // Get pixel coordinates for this intersection point
-                    const intMeta = chart.getDatasetMeta(0);
-                    const intElement = intMeta.data[intIndex];
+                    const intElement = intMeta.data[hoveredIntersection.index];
                     if (!intElement) return;
 
                     const intX = intElement.x;
                     const intY = intElement.y;
 
-                    // Draw lines to categories based on categoryBreakdown
+                    // Draw lines to all categories that people at this intersection chose
                     Object.entries(intersection.categoryBreakdown).forEach(([catCol, catValues]) => {
                         Object.entries(catValues).forEach(([catValue, catData]) => {
-                            // Find the category point in categoryDataset
                             const catIndex = categoryDataset.data.findIndex(d => d.categoryLabel === catValue);
                             if (catIndex === -1) return;
 
-                            // Get pixel coordinates for category point
-                            const catMeta = chart.getDatasetMeta(1);
                             const catElement = catMeta.data[catIndex];
                             if (!catElement) return;
 
-                            const catX = catElement.x;
-                            const catY = catElement.y;
-
-                            // Calculate line thickness based on count (1-10 range)
                             const lineWidth = Math.max(1, Math.min(10, catData.count * 1.5));
 
-                            // Draw line
                             ctx.beginPath();
                             ctx.moveTo(intX, intY);
-                            ctx.lineTo(catX, catY);
-                            ctx.strokeStyle = 'rgba(255, 215, 0, 0.4)'; // Semi-transparent gold
+                            ctx.lineTo(catElement.x, catElement.y);
+                            ctx.strokeStyle = 'rgba(100, 150, 200, 0.5)';
                             ctx.lineWidth = lineWidth;
                             ctx.stroke();
                         });
                     });
-                });
+                }
+
+                // CASE 2: Hovering over a category - show lines to intersections
+                if (hoveredCategory) {
+                    const catElement = catMeta.data[hoveredCategory.index];
+                    if (!catElement) return;
+
+                    const catX = catElement.x;
+                    const catY = catElement.y;
+                    const categoryLabel = categoryDataset.data[hoveredCategory.index].categoryLabel;
+
+                    // For each intersection, check if anyone chose this category
+                    intersections.forEach((intersection, intIndex) => {
+                        let totalCount = 0;
+
+                        // Count people at this intersection who chose this category
+                        Object.entries(intersection.categoryBreakdown).forEach(([catCol, catValues]) => {
+                            if (catValues[categoryLabel]) {
+                                totalCount += catValues[categoryLabel].count;
+                            }
+                        });
+
+                        if (totalCount > 0) {
+                            const intElement = intMeta.data[intIndex];
+                            if (!intElement) return;
+
+                            const lineWidth = Math.max(1, Math.min(10, totalCount * 1.5));
+
+                            ctx.beginPath();
+                            ctx.moveTo(catX, catY);
+                            ctx.lineTo(intElement.x, intElement.y);
+                            ctx.strokeStyle = 'rgba(100, 150, 200, 0.5)';
+                            ctx.lineWidth = lineWidth;
+                            ctx.stroke();
+                        }
+                    });
+                }
 
                 ctx.restore();
             }
