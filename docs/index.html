@@ -974,19 +974,27 @@
                 if (hoveredIntersection) {
                     const intersection = intersections[hoveredIntersection.index];
                     if (intersection) {
-                        // Hovering intersection -> highlight categories
+                        // Collect all categories with counts
+                        const catCounts = [];
                         Object.entries(intersection.categoryBreakdown).forEach(([catCol, catValues]) => {
                             Object.entries(catValues).forEach(([catValue, catData]) => {
                                 const catIndex = categoryDataset.data.findIndex(d => d.categoryLabel === catValue);
                                 if (catIndex !== -1) {
-                                    highlightedCats.set(catIndex, catData.count);
+                                    catCounts.push({ index: catIndex, count: catData.count });
                                 }
                             });
+                        });
+
+                        // Sort by count descending and take top 8
+                        catCounts.sort((a, b) => b.count - a.count);
+                        catCounts.slice(0, 8).forEach(item => {
+                            highlightedCats.set(item.index, item.count);
                         });
                     }
                 } else if (hoveredCategory) {
                     const categoryLabel = categoryDataset.data[hoveredCategory.index].categoryLabel;
-                    // Hovering category -> highlight intersections
+                    // Hovering category -> highlight intersections (limit to top 10)
+                    const intCounts = [];
                     intersections.forEach((intersection, intIndex) => {
                         let totalCount = 0;
                         Object.entries(intersection.categoryBreakdown).forEach(([catCol, catValues]) => {
@@ -995,8 +1003,14 @@
                             }
                         });
                         if (totalCount > 0) {
-                            highlightedInts.set(intIndex, totalCount);
+                            intCounts.push({ index: intIndex, count: totalCount });
                         }
+                    });
+
+                    // Sort by count descending and take top 10
+                    intCounts.sort((a, b) => b.count - a.count);
+                    intCounts.slice(0, 10).forEach(item => {
+                        highlightedInts.set(item.index, item.count);
                     });
                 }
             },
@@ -1027,12 +1041,33 @@
                                 ctx.lineWidth = 2;
                                 ctx.stroke();
 
-                                // Draw count on target category
+                                // Draw count with better visibility
+                                const text = count.toString();
+                                ctx.font = 'bold 13px Arial';
+                                const metrics = ctx.measureText(text);
+                                const textWidth = metrics.width;
+                                const padding = 4;
+
+                                // White background with border
+                                ctx.fillStyle = 'rgba(255, 255, 255, 0.95)';
+                                ctx.strokeStyle = 'rgba(0, 100, 200, 0.8)';
+                                ctx.lineWidth = 2;
+                                ctx.beginPath();
+                                ctx.roundRect(
+                                    catElement.x - textWidth / 2 - padding,
+                                    catElement.y - 8,
+                                    textWidth + padding * 2,
+                                    16,
+                                    3
+                                );
+                                ctx.fill();
+                                ctx.stroke();
+
+                                // Draw text
                                 ctx.fillStyle = '#000';
-                                ctx.font = 'bold 11px Arial';
                                 ctx.textAlign = 'center';
                                 ctx.textBaseline = 'middle';
-                                ctx.fillText(count, catElement.x, catElement.y);
+                                ctx.fillText(text, catElement.x, catElement.y);
                             }
                         });
                     }
@@ -1049,12 +1084,33 @@
                                 ctx.lineWidth = 2;
                                 ctx.stroke();
 
-                                // Draw count on target intersection
+                                // Draw count with better visibility
+                                const text = count.toString();
+                                ctx.font = 'bold 13px Arial';
+                                const metrics = ctx.measureText(text);
+                                const textWidth = metrics.width;
+                                const padding = 4;
+
+                                // White background with border
+                                ctx.fillStyle = 'rgba(255, 255, 255, 0.95)';
+                                ctx.strokeStyle = 'rgba(0, 100, 200, 0.8)';
+                                ctx.lineWidth = 2;
+                                ctx.beginPath();
+                                ctx.roundRect(
+                                    intElement.x - textWidth / 2 - padding,
+                                    intElement.y - 8,
+                                    textWidth + padding * 2,
+                                    16,
+                                    3
+                                );
+                                ctx.fill();
+                                ctx.stroke();
+
+                                // Draw text
                                 ctx.fillStyle = '#000';
-                                ctx.font = 'bold 11px Arial';
                                 ctx.textAlign = 'center';
                                 ctx.textBaseline = 'middle';
-                                ctx.fillText(count, intElement.x, intElement.y);
+                                ctx.fillText(text, intElement.x, intElement.y);
                             }
                         });
                     }
