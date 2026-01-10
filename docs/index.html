@@ -1144,27 +1144,20 @@
                 }),
                 borderColor: intersections.map(int => {
                     const hasHighlighted = int.respondentIds.some(id => highlightedIndices.has(id));
-                    return hasHighlighted ? 'rgba(255, 215, 0, 1)' : getBorderColorForPoint(int.x, int.y);
+                    // Add gray border to all intersections for visibility
+                    return hasHighlighted ? 'rgba(255, 215, 0, 1)' : 'rgba(100, 100, 100, 0.6)';
                 }),
                 borderWidth: intersections.map(int => {
                     const hasHighlighted = int.respondentIds.some(id => highlightedIndices.has(id));
-                    return hasHighlighted ? 3 : 1.5;
+                    return hasHighlighted ? 3 : 2;
                 }),
                 pointRadius: intersections.map(int => Math.max(6, Math.sqrt(int.count) * 2.5)),
                 pointHoverRadius: intersections.map(int => Math.max(7, Math.sqrt(int.count) * 2.7)),
-                pointStyle: 'circle',
+                pointStyle: 'rect',  // Square to distinguish from round categories
                 hitRadius: 8,
                 order: 2,
                 datalabels: {
-                    display: true,
-                    color: '#000',
-                    font: { size: 10, weight: 'bold' },
-                    formatter: function(value) {
-                        return value.count;
-                    },
-                    backgroundColor: 'rgba(255, 255, 255, 0.8)',
-                    borderRadius: 3,
-                    padding: 2
+                    display: false  // Hide count labels on intersections
                 }
             };
 
@@ -1182,13 +1175,13 @@
                     categoryLabel: d.label
                 })),
                 backgroundColor: rawData.map(d => getColorForPoint(d.x, d.y)),
-                borderColor: rawData.map(d => getBorderColorForPoint(d.x, d.y)),
-                borderWidth: 1.5,
+                borderColor: rawData.map(d => 'rgba(80, 80, 80, 0.7)'),  // Gray border for all categories
+                borderWidth: 2,
                 pointRadius: allData.map(d => Math.max(4, Math.sqrt(d.count) * 1.2)),
                 pointHoverRadius: allData.map(d => Math.max(4, Math.sqrt(d.count) * 1.2)),
                 pointHoverBackgroundColor: rawData.map(d => getHoverColorForPoint(d.x, d.y)),
-                pointHoverBorderColor: rawData.map(d => getBorderColorForPoint(d.x, d.y)),
-                pointHoverBorderWidth: 2.5,
+                pointHoverBorderColor: rawData.map(d => 'rgba(50, 50, 50, 0.9)'),  // Darker gray on hover
+                pointHoverBorderWidth: 3,
             };
 
             chart1Instance = new Chart(ctx, {
@@ -1386,27 +1379,20 @@
                 }),
                 borderColor: intersections.map(int => {
                     const hasHighlighted = int.respondentIds.some(id => highlightedIndices.has(id));
-                    return hasHighlighted ? 'rgba(255, 215, 0, 1)' : getBorderColorForPoint(int.x, int.y);
+                    // Add gray border to all intersections for visibility
+                    return hasHighlighted ? 'rgba(255, 215, 0, 1)' : 'rgba(100, 100, 100, 0.6)';
                 }),
                 borderWidth: intersections.map(int => {
                     const hasHighlighted = int.respondentIds.some(id => highlightedIndices.has(id));
-                    return hasHighlighted ? 3 : 1.5;
+                    return hasHighlighted ? 3 : 2;
                 }),
                 pointRadius: intersections.map(int => Math.max(6, Math.sqrt(int.count) * 2.5)),
                 pointHoverRadius: intersections.map(int => Math.max(7, Math.sqrt(int.count) * 2.7)),
-                pointStyle: 'circle',
+                pointStyle: 'rect',  // Square to distinguish from round categories
                 hitRadius: 8,
                 order: 2,
                 datalabels: {
-                    display: true,
-                    color: '#000',
-                    font: { size: 10, weight: 'bold' },
-                    formatter: function(value) {
-                        return value.count;
-                    },
-                    backgroundColor: 'rgba(255, 255, 255, 0.8)',
-                    borderRadius: 3,
-                    padding: 2
+                    display: false  // Hide count labels on intersections
                 }
             };
 
