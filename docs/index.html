@@ -1466,13 +1466,13 @@
                     categoryLabel: d.label
                 })),
                 backgroundColor: allData.map(d => getColorForPoint(d.x, d.y)),
-                borderColor: allData.map(d => getBorderColorForPoint(d.x, d.y)),
-                borderWidth: 1.5,
+                borderColor: allData.map(d => 'rgba(80, 80, 80, 0.7)'),  // Gray border for all categories
+                borderWidth: 2,
                 pointRadius: allData.map(d => Math.max(4, Math.sqrt(d.count) * 1.2)),
                 pointHoverRadius: allData.map(d => Math.max(4, Math.sqrt(d.count) * 1.2)),
                 pointHoverBackgroundColor: allData.map(d => getHoverColorForPoint(d.x, d.y)),
-                pointHoverBorderColor: allData.map(d => getBorderColorForPoint(d.x, d.y)),
-                pointHoverBorderWidth: 2.5,
+                pointHoverBorderColor: allData.map(d => 'rgba(50, 50, 50, 0.9)'),  // Darker gray on hover
+                pointHoverBorderWidth: 3,
             };
 
             chart2Instance = new Chart(ctx, {
