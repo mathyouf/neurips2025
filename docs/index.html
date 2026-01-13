@@ -1196,7 +1196,7 @@
                     // Check if any respondent at this intersection is highlighted
                     const hasHighlighted = int.respondentIds.some(id => highlightedIndices.has(id));
                     const color = getColorForPoint(int.x, int.y);
-                    return hasHighlighted ? color.replace(/[\d.]+\)$/, '1.0)') : color.replace(/[\d.]+\)$/, '0.6)');
+                    return hasHighlighted ? color.replace(/[\d.]+\)$/, '1.0)') : color.replace(/[\d.]+\)$/, '0.2)');
                 }),
                 borderColor: intersections.map(int => {
                     const hasHighlighted = int.respondentIds.some(id => highlightedIndices.has(id));
